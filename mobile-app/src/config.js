@@ -2,7 +2,7 @@ import { Platform } from "react-native";
 import Constants from "expo-constants";
 
 const PRODUCTION_API_URL =
-  "https://2dc0-2401-4900-892e-5a3-5cf8-ec30-49ec-dcd0.ngrok-free.app/api";
+  "https://4a6b-2401-4900-892e-5a3-5cf8-ec30-49ec-dcd0.ngrok-free.app/api";
 
 const getBaseUrl = () => {
   if (Platform.OS === "web") {
