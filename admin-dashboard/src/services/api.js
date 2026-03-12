@@ -8,6 +8,7 @@ const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "true",
   },
 });
 
@@ -41,7 +42,7 @@ export const authService = {
 export const stationService = {
   getAll: async () => {
     const response = await api.get("/stations");
-    return response.data;
+    return Array.isArray(response.data) ? response.data : [];
   },
   getQueue: async (stationId) => {
     const response = await api.get(`/stations/${stationId}/queue`);
@@ -64,7 +65,7 @@ export const stationService = {
 export const operatorService = {
   getAll: async () => {
     const response = await api.get("/admin/operators");
-    return response.data;
+    return Array.isArray(response.data) ? response.data : [];
   },
   create: async (operatorData) => {
     const response = await api.post("/admin/operators", operatorData);
@@ -86,11 +87,11 @@ export const operatorService = {
 export const lookupService = {
   getFuelTypes: async () => {
     const response = await api.get("/admin/fuel-types");
-    return response.data;
+    return Array.isArray(response.data) ? response.data : [];
   },
   getLocations: async () => {
     const response = await api.get("/admin/locations");
-    return response.data;
+    return Array.isArray(response.data) ? response.data : [];
   },
 };
 

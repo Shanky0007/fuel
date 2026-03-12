@@ -8,6 +8,7 @@ const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "true",
   },
 });
 
@@ -67,11 +68,11 @@ export const stationService = {
 export const operatorService = {
   getRegionalQueues: async () => {
     const response = await api.get("/operator/queues");
-    return response.data;
+    return Array.isArray(response.data) ? response.data : [];
   },
   getRegionalStations: async () => {
     const response = await api.get("/operator/stations");
-    return response.data;
+    return Array.isArray(response.data) ? response.data : [];
   },
 };
 
