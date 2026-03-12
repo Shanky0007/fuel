@@ -1,0 +1,170 @@
+
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  password      String
+  role          String    @default("CUSTOMER") // CUSTOMER, OPERATOR, ADMIN
+  phone         String?
+  country       String?   // User's country (nullable initially for migration)
+  region        String?   // User's region/state/city (nullable initially for migration)
+  vehicleType   String?   // User's vehicle type: Car, Bike, Truck, Other (nullable initially)
+  fuelType      String?   // User's fuel type: Petrol, Diesel, EV, CNG (nullable initially)
+  assignedRegion String?  // For operators - their assigned region
+  createdAt     DateTime  @default(now())
+  
+  vehicles      Vehicle[]
+  queues        Queue[]
+  logs          Log[]
+}
+
+model Station {
+  id            String    @id @default(uuid())
+  name          String
+  location      String
+  latitude      Float
+  longitude     Float
+  country       String?   // Station's country (nullable initially for migration)
+  region        String?   // Station's region (nullable initially for migration)
+  status        String    @default("OPEN") // OPEN, CLOSED, MAINTENANCE
+  totalPumps    Int       @default(4)
+  createdAt     DateTime  @default(now())
+
+  inventory     StationFuelInventory[]
+  queues        Queue[]
+}
+
+model FuelType {
+  id            String    @id @default(uuid())
+  name          String    @unique // Petrol, Diesel, EV, CNG
+  unitPrice     Float?
+  
+  inventory     StationFuelInventory[]
+  vehicles      Vehicle[]
+}
+
+model StationFuelInventory {
+  id            String    @id @default(uuid())
+  stationId     String
+  fuelTypeId    String
+  isAvailable   Boolean   @default(true)
+  
+  station       Station   @relation(fields: [stationId], references: [id])
+  fuelType      FuelType  @relation(fields: [fuelTypeId], references: [id])
+  
+  @@unique([stationId, fuelTypeId])
+}
+
+model Vehicle {
+  id                String          @id @default(uuid())
+  userId            String
+  licensePlate      String          @unique
+  registrationNumber String         @unique  // Official vehicle registration number
+  type              String          // Car, Motorcycle, Truck, Bus
+  fuelTypeId        String
+  createdAt         DateTime        @default(now())
+  
+  user              User            @relation(fields: [userId], references: [id])
+  fuelType          FuelType        @relation(fields: [fuelTypeId], references: [id])
+  queues            Queue[]
+  fuelPurchases     FuelPurchase[]
+}
+
+model Queue {
+  id            String    @id @default(uuid())
+  stationId     String
+  userId        String
+  vehicleId     String
+  fuelAmount    Float?    // Amount of fuel requested/dispensed in liters
+  status        String    @default("WAITING") // WAITING, SERVING, COMPLETED, CANCELLED
+  joinedAt      DateTime  @default(now())
+  estimatedTime DateTime?
+  
+  station       Station   @relation(fields: [stationId], references: [id])
+  user          User      @relation(fields: [userId], references: [id])
+  vehicle       Vehicle   @relation(fields: [vehicleId], references: [id])
+  
+  ticket        Ticket?
+}
+
+model Ticket {
+  id               String    @id @default(uuid())
+  queueId          String    @unique
+  qrCodeData       String
+  verificationCode String    @unique  // 6-character code for manual verification
+  status           String    @default("ACTIVE") // ACTIVE, SCANNED, USED, EXPIRED
+  generatedAt      DateTime  @default(now())
+  expiresAt        DateTime?
+  
+  queue            Queue     @relation(fields: [queueId], references: [id])
+}
+
+model Log {
+  id            String    @id @default(uuid())
+  userId        String?
+  action        String
+  metadata      String?
+  createdAt     DateTime  @default(now())
+  
+  user          User?     @relation(fields: [userId], references: [id])
+}
+
+model Country {
+  id            String    @id @default(uuid())
+  name          String    @unique
+  code          String    @unique // ISO 3166-1 alpha-2 code (e.g., "US", "IN")
+  createdAt     DateTime  @default(now())
+  
+  regions       Region[]
+}
+
+model Region {
+  id            String    @id @default(uuid())
+  name          String
+  countryId     String
+  latitude      Float     // Center point latitude of the region
+  longitude     Float     // Center point longitude of the region
+  createdAt     DateTime  @default(now())
+  
+  country       Country   @relation(fields: [countryId], references: [id])
+  
+  @@unique([name, countryId])
+}
+
+// Fuel Quota - Weekly limits set by admin for each vehicle type
+model FuelQuota {
+  id            String    @id @default(uuid())
+  vehicleType   String    @unique // Car, Motorcycle, Truck, Bus
+  weeklyLimit   Float     // Weekly fuel limit in liters
+  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime  @default(now())
+}
+
+// Fuel Purchase - Track actual fuel consumption per vehicle
+model FuelPurchase {
+  id                String    @id @default(uuid())
+  vehicleId         String
+  registrationNumber String   // Denormalized for quick lookup
+  vehicleType       String    // Denormalized for quota checking
+  fuelAmount        Float     // Amount of fuel in liters
+  purchaseDate      DateTime  @default(now())
+  stationId         String?   // Optional: which station
+  queueId           String?   // Link to queue entry
+  
+  vehicle           Vehicle   @relation(fields: [vehicleId], references: [id])
+  
+  @@index([registrationNumber, purchaseDate])
+  @@index([vehicleType, purchaseDate])
+}

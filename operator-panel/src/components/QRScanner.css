@@ -1,0 +1,202 @@
+/* ========================================
+   QR SCANNER COMPONENT - Dark Mode
+   ======================================== */
+
+.qr-scanner {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-l);
+}
+
+.scanner-card {
+    background: var(--surface-elevated);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-xl);
+    border: 1px solid var(--border);
+    transition: all var(--transition-normal);
+}
+
+.scanner-card:hover {
+    border-color: var(--border-light);
+}
+
+.scanner-card h2 {
+    font-size: 1.25rem;
+    margin-bottom: var(--spacing-l);
+    text-align: center;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-s);
+}
+
+#qr-reader {
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: var(--spacing-l);
+    border: 2px solid var(--border);
+}
+
+#qr-reader.hidden {
+    display: none;
+}
+
+#qr-reader.active {
+    display: block;
+    border-color: var(--primary);
+    box-shadow: var(--shadow-glow);
+}
+
+.scanner-placeholder {
+    text-align: center;
+    padding: var(--spacing-xxl);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--spacing-l);
+    border: 2px dashed var(--border);
+}
+
+.scanner-icon {
+    font-size: 64px;
+    margin-bottom: var(--spacing-m);
+    display: block;
+}
+
+.scanner-placeholder p {
+    color: var(--text-secondary);
+    font-size: 0.9375rem;
+}
+
+.scanner-controls {
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-m);
+}
+
+.btn-scan,
+.btn-stop {
+    padding: var(--spacing-m) var(--spacing-xl);
+    border-radius: var(--radius-md);
+    font-size: 1rem;
+    font-weight: 700;
+    transition: all var(--transition-normal);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-s);
+}
+
+.btn-scan {
+    background: var(--gradient-primary);
+    color: white;
+    border: none;
+}
+
+.btn-scan:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow);
+}
+
+.btn-stop {
+    background: linear-gradient(135deg, var(--error), var(--error-light));
+    color: white;
+    border: none;
+}
+
+.btn-stop:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 20px var(--error-glow);
+}
+
+/* Manual Input Card - Verification Code */
+.manual-input-card {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-l);
+    border: 1px solid var(--border);
+}
+
+.manual-input-card h3 {
+    font-size: 1rem;
+    margin-bottom: var(--spacing-s);
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-s);
+}
+
+.code-hint {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-m);
+}
+
+.manual-input-card form {
+    display: flex;
+    gap: var(--spacing-m);
+}
+
+.manual-input-card input {
+    flex: 1;
+    padding: var(--spacing-m);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    font-size: 0.9375rem;
+    background: var(--surface);
+    color: var(--text-primary);
+    transition: all var(--transition-fast);
+}
+
+.verification-code-input {
+    font-family: 'Courier New', monospace;
+    font-size: 1.25rem !important;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.manual-input-card input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+.manual-input-card input::placeholder {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    letter-spacing: normal;
+}
+
+.btn-verify {
+    padding: var(--spacing-m) var(--spacing-xl);
+    background: var(--gradient-success);
+    color: white;
+    border-radius: var(--radius-md);
+    font-weight: 700;
+    transition: all var(--transition-normal);
+    border: none;
+    white-space: nowrap;
+}
+
+.btn-verify:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 0 20px var(--success-glow);
+}
+
+.btn-verify:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .manual-input-card form {
+        flex-direction: column;
+    }
+
+    .btn-verify {
+        width: 100%;
+    }
+}
