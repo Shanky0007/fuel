@@ -1,7 +1,7 @@
 import { Platform } from "react-native";
 import Constants from "expo-constants";
 
-const PRODUCTION_API_URL = "http://34.14.201.249:5000/api";
+const PRODUCTION_API_URL = "https://fuel-backend-175700686095.asia-south1.run.app/api";
 
 const getBaseUrl = () => {
   if (Platform.OS === "web") {

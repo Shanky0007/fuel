@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "https://34.14.201.249/api";
+  import.meta.env.VITE_API_URL || "https://fuel-backend-175700686095.asia-south1.run.app/api";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
