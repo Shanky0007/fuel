@@ -21,6 +21,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Auth Service
 export const authService = {
   login: async (email, password) => {
     const response = await api.post("/auth/login", { email, password });
@@ -33,6 +34,7 @@ export const authService = {
     phone,
     country,
     region,
+    city,
     vehicleType,
     fuelType,
     registrationNumber
@@ -44,28 +46,123 @@ export const authService = {
       phone,
       country,
       region,
+      city,
       vehicleType,
       fuelType,
       registrationNumber,
     });
     return response.data;
   },
+  getMe: async () => {
+    const response = await api.get("/auth/me");
+    return response.data;
+  },
+  updateProfile: async (data) => {
+    const response = await api.put("/auth/profile", data);
+    return response.data;
+  },
+  updateLocation: async (country, region) => {
+    const response = await api.patch("/auth/profile/location", { country, region });
+    return response.data;
+  },
+  updateVehicle: async (vehicleType, fuelType) => {
+    const response = await api.patch("/auth/profile/vehicle", { vehicleType, fuelType });
+    return response.data;
+  },
+  forgotPassword: async (email) => {
+    const response = await api.post("/auth/forgot-password", { email });
+    return response.data;
+  },
+  resetPassword: async (token, newPassword) => {
+    const response = await api.post("/auth/reset-password", { token, newPassword });
+    return response.data;
+  },
 };
 
+// Station Service
 export const stationService = {
   getAll: async () => {
-    // START_MOCK: Return mock data if backend not ready
-    // return { data: [{ id: '1', name: 'Central Station', location: 'Downtown', status: 'OPEN', totalPumps: 8 }] };
-    // END_MOCK
-    return api.get("/stations");
+    const response = await api.get("/stations");
+    return response.data;
+  },
+  getByUserLocation: async (userId) => {
+    const response = await api.get(`/stations?userId=${userId}`);
+    return response.data;
+  },
+  getById: async (id, userId) => {
+    const response = await api.get(`/stations/${id}?userId=${userId}`);
+    return response.data;
+  },
+  getStationQueue: async (stationId) => {
+    const response = await api.get(`/stations/${stationId}/queue`);
+    return response.data;
   },
 };
 
+// Queue Service
 export const queueService = {
-  join: async (stationId, vehicleId) => {
-    return api.post("/queue/join", { stationId, vehicleId });
+  joinQueue: async (data) => {
+    const response = await api.post("/queue/join", data);
+    return response.data;
   },
-  getStatus: async () => {
-    return api.get("/queue/status");
+  getMyQueue: async () => {
+    const response = await api.get("/queue/status");
+    return response.data;
+  },
+  getStationQueue: async (stationId) => {
+    const response = await api.get(`/stations/${stationId}/queue`);
+    return response.data;
+  },
+  leaveQueue: async () => {
+    const response = await api.post("/queue/cancel");
+    return response.data;
+  },
+};
+
+// Vehicle Service
+export const vehicleService = {
+  getAll: async () => {
+    const response = await api.get("/vehicles");
+    return response.data;
+  },
+  create: async (data) => {
+    const response = await api.post("/vehicles", data);
+    return response.data;
+  },
+  delete: async (id) => {
+    const response = await api.delete(`/vehicles/${id}`);
+    return response.data;
+  },
+  getFuelTypes: async () => {
+    const response = await api.get("/vehicles/fuel-types");
+    return response.data;
+  },
+};
+
+// Location Service
+export const lookupService = {
+  getCountries: async () => {
+    const response = await api.get("/locations/countries");
+    return response.data;
+  },
+  getLocations: async () => {
+    const response = await api.get("/locations/countries");
+    return response.data;
+  },
+  getCountryById: async (countryId) => {
+    const response = await api.get(`/locations/countries/${countryId}`);
+    return response.data;
+  },
+  getRegionsByCountry: async (countryId) => {
+    const response = await api.get(`/locations/countries/${countryId}/regions`);
+    return response.data;
+  },
+  getCitiesByRegion: async (regionId) => {
+    const response = await api.get(`/locations/regions/${regionId}/cities`);
+    return response.data;
+  },
+  validateLocation: async (country, region) => {
+    const response = await api.post("/locations/validate", { country, region });
+    return response.data;
   },
 };

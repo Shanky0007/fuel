@@ -6,7 +6,8 @@ const PRODUCTION_API_URL =
 
 const getBaseUrl = () => {
   if (Platform.OS === "web") {
-    return PRODUCTION_API_URL;
+    // Use localhost for web development
+    return "http://localhost:5000/api";
   }
 
   const debuggerHost =

@@ -15,10 +15,8 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { AuthContext } from '../context/AuthContext';
-import { darkTheme } from '../theme/darkTheme';
-import { LinearGradient } from 'expo-linear-gradient';
-import { API_URL } from '../config';
-import axios from 'axios';
+import { newTheme } from '../theme/newTheme';
+import { lookupService } from '../services/api';
 
 export default function RegisterScreen({ navigation }) {
     const [name, setName] = useState('');
@@ -27,15 +25,19 @@ export default function RegisterScreen({ navigation }) {
     const [phone, setPhone] = useState('');
     const [country, setCountry] = useState('');
     const [region, setRegion] = useState('');
+    const [city, setCity] = useState('');
     const [registrationNumber, setRegistrationNumber] = useState('');
     const [vehicleType, setVehicleType] = useState('');
     const [fuelType, setFuelType] = useState('');
 
     const [countries, setCountries] = useState([]);
     const [regions, setRegions] = useState([]);
+    const [cities, setCities] = useState([]);
     const [selectedCountryId, setSelectedCountryId] = useState('');
+    const [selectedRegionId, setSelectedRegionId] = useState('');
     const [loadingCountries, setLoadingCountries] = useState(true);
     const [loadingRegions, setLoadingRegions] = useState(false);
+    const [loadingCities, setLoadingCities] = useState(false);
 
     const { register, isLoading } = useContext(AuthContext);
 
@@ -52,10 +54,16 @@ export default function RegisterScreen({ navigation }) {
         }
     }, [selectedCountryId]);
 
+    useEffect(() => {
+        if (selectedRegionId) {
+            fetchCities(selectedRegionId);
+        }
+    }, [selectedRegionId]);
+
     const fetchCountries = async () => {
         try {
-            const response = await axios.get(`${API_URL}/locations/countries`);
-            setCountries(response.data);
+            const data = await lookupService.getCountries();
+            setCountries(data);
         } catch (error) {
             console.error('Error fetching countries:', error);
         } finally {
@@ -66,12 +74,24 @@ export default function RegisterScreen({ navigation }) {
     const fetchRegions = async (countryId) => {
         setLoadingRegions(true);
         try {
-            const response = await axios.get(`${API_URL}/locations/countries/${countryId}/regions`);
-            setRegions(response.data);
+            const data = await lookupService.getRegionsByCountry(countryId);
+            setRegions(data);
         } catch (error) {
             console.error('Error fetching regions:', error);
         } finally {
             setLoadingRegions(false);
+        }
+    };
+
+    const fetchCities = async (regionId) => {
+        setLoadingCities(true);
+        try {
+            const data = await lookupService.getCitiesByRegion(regionId);
+            setCities(data);
+        } catch (error) {
+            console.error('Error fetching cities:', error);
+        } finally {
+            setLoadingCities(false);
         }
     };
 
@@ -82,50 +102,69 @@ export default function RegisterScreen({ navigation }) {
             setCountry(selectedCountry.name);
         }
         setRegion('');
+        setCity('');
         setRegions([]);
+        setCities([]);
+        setSelectedRegionId('');
     };
 
     const handleRegionChange = (regionId) => {
+        setSelectedRegionId(regionId);
         const selectedRegion = regions.find(r => r.id === regionId);
         if (selectedRegion) {
             setRegion(selectedRegion.name);
         }
+        setCity('');
+        setCities([]);
+    };
+
+    const handleCityChange = (cityId) => {
+        const selectedCity = cities.find(c => c.id === cityId);
+        if (selectedCity) {
+            setCity(selectedCity.name);
+        }
     };
 
     const handleRegister = async () => {
+        const showAlert = (title, message) => {
+            if (Platform.OS === 'web') {
+                window.alert(message || title);
+            } else {
+                Alert.alert(title, message);
+            }
+        };
+
         if (!name || !email || !password) {
-            Alert.alert('Error', 'Please fill in all required fields');
+            showAlert('Error', 'Please fill in all required fields');
             return;
         }
         if (!country || !region) {
-            Alert.alert('Error', 'Please select your country and region');
+            showAlert('Error', 'Please select your country and region');
+            return;
+        }
+        if (!city) {
+            showAlert('Error', 'Please select your city');
             return;
         }
         if (!registrationNumber) {
-            Alert.alert('Error', 'Please enter your vehicle registration number');
+            showAlert('Error', 'Please enter your vehicle registration number');
             return;
         }
         if (!vehicleType || !fuelType) {
-            Alert.alert('Error', 'Please select your vehicle type and fuel type');
+            showAlert('Error', 'Please select your vehicle type and fuel type');
             return;
         }
 
         try {
-            await register(name, email, password, phone, country, region, vehicleType, fuelType, registrationNumber);
+            await register(name, email, password, phone, country, region, city, vehicleType, fuelType, registrationNumber);
         } catch (error) {
-            Alert.alert('Registration Failed', error.response?.data?.error || 'Something went wrong');
+            showAlert('Registration Failed', error.response?.data?.error || 'Something went wrong');
         }
     };
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor={darkTheme.colors.background} />
-
-            {/* Background effects */}
-            <View style={styles.backgroundOverlay}>
-                <View style={styles.gradientCircle1} />
-                <View style={styles.gradientCircle2} />
-            </View>
+            <StatusBar barStyle="light-content" backgroundColor={newTheme.colors.bg} />
 
             <SafeAreaView style={styles.safeArea}>
                 <KeyboardAvoidingView
@@ -140,7 +179,9 @@ export default function RegisterScreen({ navigation }) {
                     >
                         {/* Header */}
                         <View style={styles.header}>
-                            <Text style={styles.logoIcon}>🚀</Text>
+                            <View style={styles.logoIcon}>
+                              <Text style={{ fontSize: 32 }}>⛽</Text>
+                            </View>
                             <Text style={styles.title}>Create Account</Text>
                             <Text style={styles.subtitle}>Join the smart fuel queue system</Text>
                         </View>
@@ -153,7 +194,7 @@ export default function RegisterScreen({ navigation }) {
                                 <TextInput
                                     style={styles.input}
                                     placeholder="John Doe"
-                                    placeholderTextColor={darkTheme.colors.textTertiary}
+                                    placeholderTextColor={newTheme.colors.text3}
                                     value={name}
                                     onChangeText={setName}
                                 />
@@ -165,7 +206,7 @@ export default function RegisterScreen({ navigation }) {
                                 <TextInput
                                     style={styles.input}
                                     placeholder="your@email.com"
-                                    placeholderTextColor={darkTheme.colors.textTertiary}
+                                    placeholderTextColor={newTheme.colors.text3}
                                     value={email}
                                     onChangeText={setEmail}
                                     autoCapitalize="none"
@@ -178,8 +219,8 @@ export default function RegisterScreen({ navigation }) {
                                 <Text style={styles.label}>Phone</Text>
                                 <TextInput
                                     style={styles.input}
-                                    placeholder="+1 234 567 8900"
-                                    placeholderTextColor={darkTheme.colors.textTertiary}
+                                    placeholder="+27 12 345 6789"
+                                    placeholderTextColor={newTheme.colors.text3}
                                     value={phone}
                                     onChangeText={setPhone}
                                     keyboardType="phone-pad"
@@ -192,7 +233,7 @@ export default function RegisterScreen({ navigation }) {
                                 <TextInput
                                     style={styles.input}
                                     placeholder="••••••••"
-                                    placeholderTextColor={darkTheme.colors.textTertiary}
+                                    placeholderTextColor={newTheme.colors.text3}
                                     value={password}
                                     onChangeText={setPassword}
                                     secureTextEntry
@@ -207,11 +248,11 @@ export default function RegisterScreen({ navigation }) {
                                         selectedValue={selectedCountryId}
                                         onValueChange={handleCountryChange}
                                         style={styles.picker}
-                                        dropdownIconColor={darkTheme.colors.text}
+                                        dropdownIconColor={newTheme.colors.text}
                                     >
-                                        <Picker.Item label="Select Country" value="" color={darkTheme.colors.textSecondary} />
+                                        <Picker.Item label="Select Country" value="" color={newTheme.colors.text2} />
                                         {countries.map((c) => (
-                                            <Picker.Item key={c.id} label={c.name} value={c.id} color={darkTheme.colors.text} />
+                                            <Picker.Item key={c.id} label={c.name} value={c.id} color={newTheme.colors.text} />
                                         ))}
                                     </Picker>
                                 </View>
@@ -229,16 +270,43 @@ export default function RegisterScreen({ navigation }) {
                                             }
                                         }}
                                         style={styles.picker}
-                                        dropdownIconColor={darkTheme.colors.text}
+                                        dropdownIconColor={newTheme.colors.text}
                                         enabled={regions.length > 0}
                                     >
                                         <Picker.Item
                                             label={loadingRegions ? "Loading..." : "Select Region"}
                                             value=""
-                                            color={darkTheme.colors.textSecondary}
+                                            color={newTheme.colors.text2}
                                         />
                                         {regions.map((r) => (
-                                            <Picker.Item key={r.id} label={r.name} value={r.name} color={darkTheme.colors.text} />
+                                            <Picker.Item key={r.id} label={r.name} value={r.name} color={newTheme.colors.text} />
+                                        ))}
+                                    </Picker>
+                                </View>
+                            </View>
+
+                            {/* City */}
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>City *</Text>
+                                <View style={styles.pickerContainer}>
+                                    <Picker
+                                        selectedValue={city}
+                                        onValueChange={(itemValue, itemIndex) => {
+                                            if (itemIndex > 0) {
+                                                handleCityChange(cities[itemIndex - 1]?.id);
+                                            }
+                                        }}
+                                        style={styles.picker}
+                                        dropdownIconColor={newTheme.colors.text}
+                                        enabled={cities.length > 0}
+                                    >
+                                        <Picker.Item
+                                            label={loadingCities ? "Loading..." : "Select City"}
+                                            value=""
+                                            color={newTheme.colors.text2}
+                                        />
+                                        {cities.map((c) => (
+                                            <Picker.Item key={c.id} label={c.name} value={c.name} color={newTheme.colors.text} />
                                         ))}
                                     </Picker>
                                 </View>
@@ -249,8 +317,8 @@ export default function RegisterScreen({ navigation }) {
                                 <Text style={styles.label}>Vehicle Plate Number *</Text>
                                 <TextInput
                                     style={styles.input}
-                                    placeholder="e.g. KA01AB1234"
-                                    placeholderTextColor={darkTheme.colors.textTertiary}
+                                    placeholder="e.g. CA 123456"
+                                    placeholderTextColor={newTheme.colors.text3}
                                     value={registrationNumber}
                                     onChangeText={val => setRegistrationNumber(val.toUpperCase())}
                                     autoCapitalize="characters"
@@ -265,11 +333,11 @@ export default function RegisterScreen({ navigation }) {
                                         selectedValue={vehicleType}
                                         onValueChange={setVehicleType}
                                         style={styles.picker}
-                                        dropdownIconColor={darkTheme.colors.text}
+                                        dropdownIconColor={newTheme.colors.text}
                                     >
-                                        <Picker.Item label="Select Type" value="" color={darkTheme.colors.textSecondary} />
+                                        <Picker.Item label="Select Type" value="" color={newTheme.colors.text2} />
                                         {vehicleTypes.map((type) => (
-                                            <Picker.Item key={type} label={type} value={type} color={darkTheme.colors.text} />
+                                            <Picker.Item key={type} label={type} value={type} color={newTheme.colors.text} />
                                         ))}
                                     </Picker>
                                 </View>
@@ -283,11 +351,11 @@ export default function RegisterScreen({ navigation }) {
                                         selectedValue={fuelType}
                                         onValueChange={setFuelType}
                                         style={styles.picker}
-                                        dropdownIconColor={darkTheme.colors.text}
+                                        dropdownIconColor={newTheme.colors.text}
                                     >
-                                        <Picker.Item label="Select Fuel" value="" color={darkTheme.colors.textSecondary} />
+                                        <Picker.Item label="Select Fuel" value="" color={newTheme.colors.text2} />
                                         {fuelTypes.map((type) => (
-                                            <Picker.Item key={type} label={type} value={type} color={darkTheme.colors.text} />
+                                            <Picker.Item key={type} label={type} value={type} color={newTheme.colors.text} />
                                         ))}
                                     </Picker>
                                 </View>
@@ -300,18 +368,11 @@ export default function RegisterScreen({ navigation }) {
                                 disabled={isLoading}
                                 activeOpacity={0.8}
                             >
-                                <LinearGradient
-                                    colors={darkTheme.colors.gradientAccent}
-                                    style={styles.buttonGradient}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                >
-                                    {isLoading ? (
-                                        <ActivityIndicator color={darkTheme.colors.white} />
-                                    ) : (
-                                        <Text style={styles.buttonText}>Create Account</Text>
-                                    )}
-                                </LinearGradient>
+                                {isLoading ? (
+                                    <ActivityIndicator color={newTheme.colors.bg} />
+                                ) : (
+                                    <Text style={styles.buttonText}>Create Account</Text>
+                                )}
                             </TouchableOpacity>
 
                             {/* Login Link */}
@@ -334,40 +395,10 @@ export default function RegisterScreen({ navigation }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: darkTheme.colors.background,
-    },
-    backgroundOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        overflow: 'hidden',
-        zIndex: 0,
-    },
-    gradientCircle1: {
-        position: 'absolute',
-        top: -100,
-        right: -100,
-        width: 300,
-        height: 300,
-        borderRadius: 150,
-        backgroundColor: darkTheme.colors.accentGlow,
-        opacity: 0.4,
-    },
-    gradientCircle2: {
-        position: 'absolute',
-        bottom: -100,
-        left: -100,
-        width: 300,
-        height: 300,
-        borderRadius: 150,
-        backgroundColor: darkTheme.colors.primaryGlow,
-        opacity: 0.4,
+        backgroundColor: newTheme.colors.bg,
     },
     safeArea: {
         flex: 1,
-        zIndex: 1,
     },
     keyboardView: {
         flex: 1,
@@ -377,86 +408,91 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         flexGrow: 1,
-        padding: darkTheme.spacing.lg,
-        paddingBottom: darkTheme.spacing.xxl,
+        padding: 20,
+        paddingBottom: 40,
     },
     header: {
         alignItems: 'center',
-        marginBottom: darkTheme.spacing.lg,
-        marginTop: darkTheme.spacing.md,
+        marginBottom: 24,
+        marginTop: 16,
     },
     logoIcon: {
-        fontSize: 48,
-        marginBottom: darkTheme.spacing.sm,
+        width: 64,
+        height: 64,
+        backgroundColor: newTheme.colors.amber,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 16,
     },
     title: {
-        fontSize: darkTheme.fontSize.xxl,
-        fontWeight: darkTheme.fontWeight.extrabold,
-        color: darkTheme.colors.text,
+        fontSize: 26,
+        fontWeight: '700',
+        color: newTheme.colors.text,
         letterSpacing: -0.5,
-        marginBottom: darkTheme.spacing.xs,
+        marginBottom: 4,
     },
     subtitle: {
-        fontSize: darkTheme.fontSize.sm,
-        color: darkTheme.colors.textSecondary,
-        marginTop: darkTheme.spacing.xs,
+        fontSize: 14,
+        color: newTheme.colors.text2,
+        marginTop: 4,
     },
     formCard: {
-        backgroundColor: darkTheme.colors.surface,
-        borderRadius: darkTheme.borderRadius.lg,
-        padding: darkTheme.spacing.lg,
+        backgroundColor: newTheme.colors.bg2,
+        borderRadius: 24,
+        padding: 24,
         borderWidth: 1,
-        borderColor: darkTheme.colors.border,
-        ...darkTheme.shadows.large,
+        borderColor: newTheme.colors.border,
     },
     inputGroup: {
-        marginBottom: darkTheme.spacing.md,
+        marginBottom: 16,
     },
     label: {
-        fontSize: darkTheme.fontSize.sm,
-        fontWeight: darkTheme.fontWeight.semibold,
-        color: darkTheme.colors.text,
-        marginBottom: darkTheme.spacing.xs,
+        fontSize: 11,
+        fontWeight: '600',
+        color: newTheme.colors.text3,
+        letterSpacing: 1,
+        marginBottom: 8,
+        textTransform: 'uppercase',
     },
     input: {
-        backgroundColor: darkTheme.colors.card,
-        padding: darkTheme.spacing.md,
-        borderRadius: darkTheme.borderRadius.md,
+        backgroundColor: newTheme.colors.bg3,
+        padding: 14,
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: darkTheme.colors.border,
-        fontSize: darkTheme.fontSize.md,
-        color: darkTheme.colors.text,
-        minHeight: 48,
+        borderColor: newTheme.colors.border,
+        fontSize: 15,
+        color: newTheme.colors.text,
+        minHeight: 54,
     },
     pickerContainer: {
-        backgroundColor: darkTheme.colors.card,
-        borderRadius: darkTheme.borderRadius.md,
+        backgroundColor: newTheme.colors.bg3,
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: darkTheme.colors.border,
+        borderColor: newTheme.colors.border,
         overflow: 'hidden',
     },
     picker: {
-        color: darkTheme.colors.text,
-        backgroundColor: darkTheme.colors.card,
-        height: 50,
+        color: newTheme.colors.text,
+        backgroundColor: newTheme.colors.bg3,
+        height: 54,
     },
     button: {
-        borderRadius: 12,
-        overflow: 'hidden',
-        marginTop: darkTheme.spacing.lg,
+        height: 54,
+        backgroundColor: newTheme.colors.amber,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 24,
     },
     buttonDisabled: {
         opacity: 0.6,
     },
-    buttonGradient: {
-        padding: 16,
-        alignItems: 'center',
-    },
     buttonText: {
-        color: darkTheme.colors.white,
+        color: newTheme.colors.bg,
         fontSize: 16,
         fontWeight: '700',
-        letterSpacing: 0.5,
+        letterSpacing: -0.2,
     },
     linkContainer: {
         paddingVertical: 16,
@@ -464,12 +500,12 @@ const styles = StyleSheet.create({
         marginTop: 8,
     },
     linkText: {
-        color: darkTheme.colors.textSecondary,
+        color: newTheme.colors.text2,
         textAlign: 'center',
-        fontSize: 14,
+        fontSize: 13,
     },
     linkBold: {
-        color: darkTheme.colors.accent,
+        color: newTheme.colors.amber,
         fontWeight: '700',
     },
 });

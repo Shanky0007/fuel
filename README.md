@@ -8,6 +8,7 @@ A complete system to eliminate physical waiting lines at fuel stations through v
 - **Mobile App**: React Native (Expo) for customers
 - **Operator Panel**: React/Vite web app for station staff
 - **Admin Dashboard**: React/Vite web app for administrators
+- **Location System**: South Africa with 9 provinces (Gauteng, Western Cape, KwaZulu-Natal, Eastern Cape, Limpopo, Mpumalanga, North West, Free State, Northern Cape)
 
 ## 🚀 Quick Start Guide
 
@@ -91,10 +92,13 @@ npm start
 - Email: `admin@smartfuel.com`
 - Password: `admin123`
 - Access: Operator Panel + Admin Dashboard
+- Region: Gauteng, South Africa
 
 ### Customer Account (Create via Mobile App)
 - Register through the mobile app
 - Or use: `vivek@example.com` / `password123` (if already created)
+- Select South Africa as country
+- Choose from 9 provinces (Gauteng, Western Cape, KwaZulu-Natal, etc.)
 
 ## 📱 Complete User Flow
 

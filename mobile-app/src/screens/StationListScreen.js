@@ -1,286 +1,608 @@
-import React, { useEffect, useState, useContext } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-import { darkTheme } from '../theme/darkTheme';
-import { API_URL } from '../config';
+import React, { useState, useEffect, useContext } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+  ScrollView,
+  Dimensions,
+  TextInput,
+} from 'react-native';
+import { AuthContext } from '../context/AuthContext';
+import { stationService } from '../services/api';
+import { newTheme } from '../theme/newTheme';
 
+const { width } = Dimensions.get('window');
 
 export default function StationListScreen({ navigation }) {
-    const [stations, setStations] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [userId, setUserId] = useState(null);
+  const { user } = useContext(AuthContext);
+  const [stations, setStations] = useState([]);
+  const [filteredStations, setFilteredStations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedStation, setSelectedStation] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState('map'); // 'map' or 'list'
 
-    useEffect(() => {
-        getUserId();
-    }, []);
+  useEffect(() => {
+    loadStations();
+    const interval = setInterval(loadStations, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
 
-    useEffect(() => {
-        if (userId) {
-            loadStations();
-        }
-    }, [userId]);
+  useEffect(() => {
+    // Filter stations based on search query
+    if (searchQuery.trim() === '') {
+      setFilteredStations(stations);
+    } else {
+      const query = searchQuery.toLowerCase();
+      const filtered = stations.filter(station => 
+        station.name.toLowerCase().includes(query) ||
+        station.location?.toLowerCase().includes(query) ||
+        station.city?.toLowerCase().includes(query)
+      );
+      setFilteredStations(filtered);
+      if (filtered.length > 0 && !filtered.find(s => s.id === selectedStation?.id)) {
+        setSelectedStation(filtered[0]);
+      }
+    }
+  }, [searchQuery, stations]);
 
-    const getUserId = async () => {
-        try {
-            const token = await AsyncStorage.getItem('token');
-            if (token) {
-                // Decode token to get userId (simplified - in production use proper JWT decode)
-                const response = await axios.get(`${API_URL}/auth/me`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                setUserId(response.data.id);
-            }
-        } catch (error) {
-            console.error('Error getting user ID:', error);
-        }
-    };
+  const loadStations = async () => {
+    try {
+      if (!user || !user.id) {
+        console.log('User not loaded yet');
+        return;
+      }
+      const data = await stationService.getByUserLocation(user.id);
+      setStations(data);
+      setFilteredStations(data);
+      if (data.length > 0 && !selectedStation) {
+        setSelectedStation(data[0]);
+      }
+    } catch (error) {
+      console.error('Failed to load stations:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const loadStations = async () => {
-        try {
-            const token = await AsyncStorage.getItem('token');
-            const response = await axios.get(`${API_URL}/stations?userId=${userId}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setStations(response.data);
-        } catch (error) {
-            console.error('Error loading stations:', error);
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    };
+  const handleStationPress = (station) => {
+    setSelectedStation(station);
+  };
 
-    const onRefresh = () => {
-        setRefreshing(true);
-        loadStations();
-    };
+  const handleJoinQueue = () => {
+    if (selectedStation) {
+      navigation.navigate('StationDetails', { station: selectedStation });
+    }
+  };
 
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'OPEN':
-                return darkTheme.colors.stationOpen;
-            case 'CLOSED':
-                return darkTheme.colors.stationClosed;
-            case 'MAINTENANCE':
-                return darkTheme.colors.stationMaintenance;
-            default:
-                return darkTheme.colors.textSecondary;
-        }
-    };
+  const getQueueColor = (queueLength) => {
+    if (queueLength === 0) return newTheme.colors.green;
+    if (queueLength < 5) return newTheme.colors.green;
+    if (queueLength < 10) return newTheme.colors.amber;
+    return newTheme.colors.red;
+  };
 
-    const formatDistance = (distance) => {
-        if (distance === null || distance === undefined) {
-            return 'Distance unavailable';
-        }
-        return `${distance.toFixed(1)} km`;
-    };
-
-    const renderStation = ({ item }) => (
-        <TouchableOpacity
-            style={styles.card}
-            onPress={() => navigation.navigate('StationDetails', { station: item })}
-            activeOpacity={0.7}
-        >
-            <View style={styles.cardHeader}>
-                <View style={styles.iconContainer}>
-                    <Text style={styles.icon}>⛽</Text>
-                </View>
-                <View style={styles.cardContent}>
-                    <Text style={styles.stationName}>{item.name}</Text>
-                    <Text style={styles.address}>{item.location}</Text>
-                    {item.region && (
-                        <Text style={styles.region}>📍 {item.region}, {item.country}</Text>
-                    )}
-                    <View style={styles.metaRow}>
-                        <View style={styles.metaItem}>
-                            <Text style={styles.metaIcon}>🚗</Text>
-                            <Text style={styles.metaText}>{item.totalPumps} Pumps</Text>
-                        </View>
-                        {item.distance !== null && item.distance !== undefined && (
-                            <View style={styles.metaItem}>
-                                <Text style={styles.metaIcon}>📏</Text>
-                                <Text style={styles.metaText}>{formatDistance(item.distance)}</Text>
-                            </View>
-                        )}
-                    </View>
-                </View>
-            </View>
-            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
-                <View style={[styles.statusDot, { backgroundColor: getStatusColor(item.status) }]} />
-                <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-                    {item.status}
-                </Text>
-            </View>
-        </TouchableOpacity>
-    );
-
+  if (loading) {
     return (
-        <View style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.title}>Nearby Stations</Text>
-                <Text style={styles.subtitle}>Find your perfect fuel stop</Text>
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color={newTheme.colors.amber} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      {/* Map View */}
+      <View style={styles.mapContainer}>
+        <View style={styles.mapBg} />
+        
+        {/* Map Grid */}
+        <View style={styles.mapGrid} />
+
+        {/* User Location Dot */}
+        <View style={styles.userDot} />
+
+        {/* Station Pins */}
+        {filteredStations.slice(0, 6).map((station, index) => {
+          const positions = [
+            { left: '32%', top: '44%' },
+            { left: '62%', top: '52%' },
+            { left: '80%', top: '30%' },
+            { left: '18%', top: '65%' },
+            { left: '45%', top: '70%' },
+            { left: '70%', top: '60%' },
+          ];
+          const pos = positions[index] || { left: '50%', top: '50%' };
+          const isSelected = selectedStation?.id === station.id;
+          const isOpen = station.status === 'OPEN';
+
+          return (
+            <TouchableOpacity
+              key={station.id}
+              style={[styles.stationPin, { left: pos.left, top: pos.top }]}
+              onPress={() => handleStationPress(station)}
+              activeOpacity={0.7}
+            >
+              <View style={[
+                styles.pinBubble,
+                isSelected && styles.pinBubbleSelected,
+                !isOpen && styles.pinBubbleClosed
+              ]}>
+                <View style={[
+                  styles.pinDot,
+                  isSelected ? styles.pinDotSelected : (isOpen ? styles.pinDotOpen : styles.pinDotClosed)
+                ]} />
+                <View>
+                  <Text style={styles.pinName}>{station.name}</Text>
+                  <Text style={styles.pinQueue}>
+                    {isOpen ? `${station.currentQueueLength || 0} in queue` : 'Closed'}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.pinTail} />
+            </TouchableOpacity>
+          );
+        })}
+
+        {/* Gradients */}
+        <View style={styles.mapGradientTop} />
+        <View style={styles.mapGradient} />
+
+        {/* Search Bar */}
+        <View style={styles.mapSearch}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search for a station..."
+            placeholderTextColor={newTheme.colors.text3}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Text style={styles.clearIcon}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* Station Info Sheet */}
+      <ScrollView style={styles.stationSheet} showsVerticalScrollIndicator={false}>
+        {selectedStation ? (
+          <>
+            <View style={styles.stationSheetHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.stationName}>{selectedStation.name}</Text>
+                <View style={styles.stationMeta}>
+                  <View style={[
+                    styles.pill,
+                    selectedStation.status === 'OPEN' ? styles.pillGreen : styles.pillRed
+                  ]}>
+                    {selectedStation.status === 'OPEN' && <View style={styles.liveDot} />}
+                    <Text style={[
+                      styles.pillText,
+                      { color: selectedStation.status === 'OPEN' ? newTheme.colors.green : newTheme.colors.red }
+                    ]}>
+                      {selectedStation.status === 'OPEN' ? 'Open' : 'Closed'}
+                    </Text>
+                  </View>
+                  {selectedStation.distance && (
+                    <Text style={styles.distanceText}>
+                      {selectedStation.distance.toFixed(1)} km
+                    </Text>
+                  )}
+                </View>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.queueNumber}>{selectedStation.currentQueueLength || 0}</Text>
+                <Text style={styles.queueLabel}>in queue</Text>
+              </View>
             </View>
 
-            {loading ? (
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator color={darkTheme.colors.primary} size="large" />
+            {/* Fuel Types */}
+            <View style={styles.fuelChips}>
+              {selectedStation.inventory?.map((inv) => (
+                <View key={inv.id} style={styles.fuelChip}>
+                  <Text style={styles.fuelChipText}>
+                    {inv.fuelType?.name === 'Petrol' && '🔴'}
+                    {inv.fuelType?.name === 'Diesel' && '🟡'}
+                    {inv.fuelType?.name === 'EV' && '⚡'}
+                    {inv.fuelType?.name === 'CNG' && '🔵'}
+                    {' '}{inv.fuelType?.name}
+                  </Text>
                 </View>
-            ) : (
-                <FlatList
-                    data={stations}
-                    renderItem={renderStation}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.list}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={onRefresh}
-                            tintColor={darkTheme.colors.primary}
-                            colors={[darkTheme.colors.primary]}
-                        />
-                    }
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Text style={styles.emptyIcon}>🔍</Text>
-                            <Text style={styles.emptyText}>No stations found in your region</Text>
-                            <Text style={styles.emptySubtext}>Pull down to refresh</Text>
-                        </View>
-                    }
-                />
-            )}
-        </View>
-    );
+              ))}
+            </View>
+
+            {/* Actions */}
+            <View style={styles.actionButtons}>
+              <TouchableOpacity
+                style={styles.btnPrimary}
+                onPress={handleJoinQueue}
+                disabled={selectedStation.status !== 'OPEN'}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.btnPrimaryText}>
+                  {selectedStation.status === 'OPEN' ? 'Get Ticket →' : 'Station Closed'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Nearby Stations */}
+            <View style={styles.divider} />
+            <Text style={styles.sectionLabel}>NEARBY STATIONS</Text>
+            <View style={styles.nearbyCard}>
+              {filteredStations.filter(s => s.id !== selectedStation.id).slice(0, 3).map((station) => (
+                <TouchableOpacity
+                  key={station.id}
+                  style={styles.stationListItem}
+                  onPress={() => handleStationPress(station)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[
+                    styles.stationIcon,
+                    station.status === 'OPEN' ? styles.stationIconOpen : styles.stationIconClosed
+                  ]}>
+                    <Text style={{ fontSize: 20 }}>
+                      {station.status === 'OPEN' ? '⚡' : '⛽'}
+                    </Text>
+                  </View>
+                  <View style={styles.stationListInfo}>
+                    <Text style={styles.stationListName}>{station.name}</Text>
+                    <Text style={styles.stationListAddr} numberOfLines={1}>
+                      {station.location}
+                    </Text>
+                  </View>
+                  <View style={styles.stationListRight}>
+                    {station.distance && (
+                      <View style={styles.distChip}>
+                        <Text style={styles.distChipText}>{station.distance.toFixed(1)} km</Text>
+                      </View>
+                    )}
+                    <View style={[
+                      styles.pill,
+                      station.currentQueueLength > 5 ? styles.pillAmber : styles.pillGreen,
+                      { marginTop: 4 }
+                    ]}>
+                      <Text style={[
+                        styles.pillText,
+                        { color: station.currentQueueLength > 5 ? newTheme.colors.amber : newTheme.colors.green }
+                      ]}>
+                        {station.currentQueueLength || 0} in queue
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>No stations available in your area</Text>
+          </View>
+        )}
+        <View style={{ height: 24 }} />
+      </ScrollView>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: darkTheme.colors.background,
-    },
-    header: {
-        paddingTop: darkTheme.spacing.xxl,
-        paddingBottom: darkTheme.spacing.lg,
-        paddingHorizontal: darkTheme.spacing.lg,
-        backgroundColor: darkTheme.colors.surface,
-    },
-    title: {
-        fontSize: darkTheme.fontSize.xxxl,
-        fontWeight: darkTheme.fontWeight.bold,
-        color: darkTheme.colors.text,
-        marginBottom: darkTheme.spacing.xs,
-    },
-    subtitle: {
-        fontSize: darkTheme.fontSize.md,
-        color: darkTheme.colors.textSecondary,
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    list: {
-        padding: darkTheme.spacing.lg,
-        paddingBottom: darkTheme.spacing.xxl,
-    },
-    card: {
-        backgroundColor: darkTheme.colors.card,
-        borderRadius: darkTheme.borderRadius.lg,
-        padding: darkTheme.spacing.md,
-        marginBottom: darkTheme.spacing.md,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        ...darkTheme.shadows.medium,
-    },
-    cardHeader: {
-        flexDirection: 'row',
-        flex: 1,
-        gap: darkTheme.spacing.md,
-    },
-    iconContainer: {
-        width: 56,
-        height: 56,
-        borderRadius: darkTheme.borderRadius.md,
-        backgroundColor: darkTheme.colors.primary + '20',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    icon: {
-        fontSize: 28,
-    },
-    cardContent: {
-        flex: 1,
-        gap: darkTheme.spacing.xs,
-    },
-    stationName: {
-        fontSize: darkTheme.fontSize.lg,
-        fontWeight: darkTheme.fontWeight.bold,
-        color: darkTheme.colors.text,
-    },
-    address: {
-        fontSize: darkTheme.fontSize.sm,
-        color: darkTheme.colors.textSecondary,
-    },
-    region: {
-        fontSize: darkTheme.fontSize.xs,
-        color: darkTheme.colors.textSecondary,
-        marginTop: darkTheme.spacing.xs,
-    },
-    metaRow: {
-        flexDirection: 'row',
-        gap: darkTheme.spacing.md,
-        marginTop: darkTheme.spacing.sm,
-    },
-    metaItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: darkTheme.spacing.xs,
-    },
-    metaIcon: {
-        fontSize: 14,
-    },
-    metaText: {
-        fontSize: darkTheme.fontSize.xs,
-        color: darkTheme.colors.textSecondary,
-        fontWeight: darkTheme.fontWeight.medium,
-    },
-    statusBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: darkTheme.spacing.md,
-        paddingVertical: darkTheme.spacing.sm,
-        borderRadius: darkTheme.borderRadius.round,
-        gap: darkTheme.spacing.xs,
-    },
-    statusDot: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-    },
-    statusText: {
-        fontWeight: darkTheme.fontWeight.bold,
-        fontSize: darkTheme.fontSize.xs,
-    },
-    emptyContainer: {
-        alignItems: 'center',
-        marginTop: darkTheme.spacing.xxl,
-        paddingHorizontal: darkTheme.spacing.lg,
-    },
-    emptyIcon: {
-        fontSize: 64,
-        marginBottom: darkTheme.spacing.md,
-    },
-    emptyText: {
-        fontSize: darkTheme.fontSize.lg,
-        color: darkTheme.colors.textSecondary,
-        textAlign: 'center',
-        marginBottom: darkTheme.spacing.sm,
-    },
-    emptySubtext: {
-        fontSize: darkTheme.fontSize.sm,
-        color: darkTheme.colors.textDisabled,
-        textAlign: 'center',
-    },
+  container: {
+    flex: 1,
+    backgroundColor: newTheme.colors.bg,
+  },
+  mapContainer: {
+    height: 320,
+    backgroundColor: newTheme.colors.bg2,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  mapBg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: newTheme.colors.bg2,
+  },
+  mapGrid: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  userDot: {
+    position: 'absolute',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: newTheme.colors.blue,
+    borderWidth: 3,
+    borderColor: newTheme.colors.bg,
+    top: '54%',
+    left: '48%',
+  },
+  stationPin: {
+    position: 'absolute',
+  },
+  pinBubble: {
+    backgroundColor: newTheme.colors.bg2,
+    borderWidth: 1.5,
+    borderColor: newTheme.colors.border,
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pinBubbleSelected: {
+    borderColor: newTheme.colors.amber,
+    backgroundColor: newTheme.colors.amberGlow,
+  },
+  pinBubbleClosed: {
+    borderColor: newTheme.colors.red,
+    opacity: 0.7,
+  },
+  pinDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  pinDotOpen: {
+    backgroundColor: newTheme.colors.green,
+  },
+  pinDotClosed: {
+    backgroundColor: newTheme.colors.red,
+  },
+  pinDotSelected: {
+    backgroundColor: newTheme.colors.amber,
+  },
+  pinName: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: newTheme.colors.text,
+  },
+  pinQueue: {
+    fontSize: 10,
+    color: newTheme.colors.text2,
+  },
+  pinTail: {
+    width: 2,
+    height: 10,
+    backgroundColor: newTheme.colors.border,
+    marginLeft: 'auto',
+    marginRight: 'auto',
+  },
+  mapGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 120,
+    backgroundColor: 'transparent',
+  },
+  mapGradientTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 60,
+    backgroundColor: 'transparent',
+  },
+  mapSearch: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    right: 16,
+    backgroundColor: 'rgba(19,21,26,0.92)',
+    borderWidth: 1,
+    borderColor: newTheme.colors.border,
+    borderRadius: 14,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  searchIcon: {
+    fontSize: 16,
+    color: newTheme.colors.text3,
+  },
+  searchInput: {
+    fontSize: 14,
+    color: newTheme.colors.text,
+    flex: 1,
+    outlineStyle: 'none',
+  },
+  clearIcon: {
+    fontSize: 18,
+    color: newTheme.colors.text3,
+    paddingHorizontal: 8,
+  },
+  stationSheet: {
+    flex: 1,
+    paddingTop: 20,
+  },
+  stationSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingHorizontal: 20,
+  },
+  stationName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: newTheme.colors.text,
+    letterSpacing: -0.3,
+    marginBottom: 4,
+  },
+  stationMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 20,
+    gap: 5,
+  },
+  pillGreen: {
+    backgroundColor: newTheme.colors.greenGlow,
+  },
+  pillAmber: {
+    backgroundColor: newTheme.colors.amberGlow,
+  },
+  pillRed: {
+    backgroundColor: 'rgba(248,113,113,0.12)',
+  },
+  pillText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: newTheme.colors.green,
+  },
+  distanceText: {
+    fontSize: 12,
+    color: newTheme.colors.text3,
+  },
+  queueNumber: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: newTheme.colors.amber,
+  },
+  queueLabel: {
+    fontSize: 10,
+    color: newTheme.colors.text3,
+  },
+  fuelChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 16,
+    paddingHorizontal: 20,
+  },
+  fuelChip: {
+    backgroundColor: newTheme.colors.bg3,
+    borderWidth: 1,
+    borderColor: newTheme.colors.border,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  fuelChipText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: newTheme.colors.text2,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  btnPrimary: {
+    flex: 1,
+    height: 54,
+    backgroundColor: newTheme.colors.amber,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnPrimaryText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: newTheme.colors.bg,
+    letterSpacing: -0.2,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: newTheme.colors.border,
+    marginHorizontal: 20,
+    marginVertical: 16,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: newTheme.colors.text3,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    paddingHorizontal: 20,
+    marginBottom: 8,
+  },
+  nearbyCard: {
+    backgroundColor: newTheme.colors.bg2,
+    borderWidth: 1,
+    borderColor: newTheme.colors.border,
+    borderRadius: 16,
+    marginHorizontal: 20,
+    overflow: 'hidden',
+  },
+  stationListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: newTheme.colors.border,
+  },
+  stationIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stationIconOpen: {
+    backgroundColor: newTheme.colors.greenGlow,
+  },
+  stationIconClosed: {
+    backgroundColor: 'rgba(248,113,113,0.1)',
+  },
+  stationListInfo: {
+    flex: 1,
+  },
+  stationListName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: newTheme.colors.text,
+    marginBottom: 2,
+  },
+  stationListAddr: {
+    fontSize: 12,
+    color: newTheme.colors.text3,
+  },
+  stationListRight: {
+    alignItems: 'flex-end',
+  },
+  distChip: {
+    backgroundColor: newTheme.colors.bg3,
+    borderRadius: 6,
+    paddingVertical: 2,
+    paddingHorizontal: 7,
+  },
+  distChipText: {
+    fontSize: 11,
+    color: newTheme.colors.text3,
+  },
+  emptyState: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: newTheme.colors.text3,
+  },
 });

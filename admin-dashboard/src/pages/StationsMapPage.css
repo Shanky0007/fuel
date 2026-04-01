@@ -1,0 +1,89 @@
+.map-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.map-header {
+  padding: 2rem;
+  text-align: center;
+  color: white;
+}
+
+.map-header h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: 2rem;
+  font-weight: bold;
+}
+
+.station-count {
+  margin: 0;
+  font-size: 1rem;
+  opacity: 0.9;
+}
+
+.map-container {
+  flex: 1;
+  margin: 0 2rem 2rem 2rem;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  border: 3px solid rgba(255, 255, 255, 0.2);
+}
+
+.popup-content {
+  min-width: 200px;
+}
+
+.popup-content h3 {
+  margin: 0 0 0.5rem 0;
+  color: #667eea;
+  font-size: 1.1rem;
+}
+
+.popup-content p {
+  margin: 0.3rem 0;
+  font-size: 0.9rem;
+}
+
+.popup-content strong {
+  color: #333;
+}
+
+.status-open {
+  color: #10b981;
+  font-weight: bold;
+}
+
+.status-closed {
+  color: #ef4444;
+  font-weight: bold;
+}
+
+.status-maintenance {
+  color: #f59e0b;
+  font-weight: bold;
+}
+
+.warning-banner {
+  background-color: #fef3c7;
+  color: #92400e;
+  padding: 1rem;
+  text-align: center;
+  font-weight: 500;
+  border-top: 2px solid #f59e0b;
+}
+
+/* Leaflet overrides */
+.leaflet-container {
+  background: #e5e7eb;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 8px;
+}
+
+.leaflet-popup-content {
+  margin: 1rem;
+}

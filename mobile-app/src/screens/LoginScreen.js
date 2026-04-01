@@ -1,242 +1,253 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, SafeAreaView, StatusBar } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+} from 'react-native';
 import { AuthContext } from '../context/AuthContext';
-import { darkTheme } from '../theme/darkTheme';
-import { LinearGradient } from 'expo-linear-gradient';
+import { newTheme } from '../theme/newTheme';
 
 export default function LoginScreen({ navigation, onBack }) {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const { login, isLoading } = useContext(AuthContext);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const { login, isLoading } = useContext(AuthContext);
 
-    const handleLogin = async () => {
-        try {
-            await login(email, password);
-        } catch (error) {
-            Alert.alert('Login Failed', error.response?.data?.error || 'Something went wrong');
-        }
-    };
+  const showAlert = (title, message) => {
+    if (Platform.OS === 'web') {
+      window.alert(message || title);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
 
-    return (
-        <View style={styles.container}>
-            <StatusBar barStyle="light-content" />
+  const handleLogin = async () => {
+    if (!email || !password) {
+      showAlert('Error', 'Please fill in all fields');
+      return;
+    }
 
-            {/* Background gradient overlay */}
-            <View style={styles.backgroundOverlay}>
-                <View style={styles.gradientCircle1} />
-                <View style={styles.gradientCircle2} />
+    try {
+      await login(email, password);
+    } catch (error) {
+      showAlert('Login Failed', error.response?.data?.error || 'Invalid credentials');
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      {/* Back button */}
+      {onBack && (
+        <SafeAreaView style={styles.backButtonContainer}>
+          <TouchableOpacity style={styles.backButton} onPress={onBack}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+        </SafeAreaView>
+      )}
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <View style={styles.content}>
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.logoIcon}>
+              <Text style={{ fontSize: 32 }}>⛽</Text>
+            </View>
+            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.subtitle}>Sign in to continue</Text>
+          </View>
+
+          {/* Form */}
+          <View style={styles.formCard}>
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>EMAIL</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="your@email.com"
+                placeholderTextColor={newTheme.colors.text3}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
             </View>
 
-            {/* Back button */}
-            {onBack && (
-                <SafeAreaView style={styles.backButtonContainer}>
-                    <TouchableOpacity style={styles.backButton} onPress={onBack}>
-                        <Text style={styles.backButtonText}>← Back to Roles</Text>
-                    </TouchableOpacity>
-                </SafeAreaView>
-            )}
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>PASSWORD</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="••••••••"
+                placeholderTextColor={newTheme.colors.text3}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
+            </View>
 
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.keyboardView}
+            <TouchableOpacity
+              style={styles.btnPrimary}
+              onPress={handleLogin}
+              disabled={isLoading}
+              activeOpacity={0.8}
             >
-                <View style={styles.content}>
-                    <View style={styles.header}>
-                        <Text style={styles.title}>Welcome Back</Text>
-                        <Text style={styles.subtitle}>Sign in to continue your journey</Text>
-                    </View>
+              {isLoading ? (
+                <ActivityIndicator color={newTheme.colors.bg} />
+              ) : (
+                <Text style={styles.btnPrimaryText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
 
-                    <View style={styles.formCard}>
-                        <View style={styles.form}>
-                            <View style={styles.inputContainer}>
-                                <Text style={styles.label}>Email Address</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="your@email.com"
-                                    placeholderTextColor={darkTheme.colors.textTertiary}
-                                    value={email}
-                                    onChangeText={setEmail}
-                                    autoCapitalize="none"
-                                    keyboardType="email-address"
-                                />
-                            </View>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('ForgotPassword')}
+              style={styles.forgotLink}
+            >
+              <Text style={styles.forgotText}>Forgot Password?</Text>
+            </TouchableOpacity>
 
-                            <View style={styles.inputContainer}>
-                                <Text style={styles.label}>Password</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="••••••••"
-                                    placeholderTextColor={darkTheme.colors.textTertiary}
-                                    value={password}
-                                    onChangeText={setPassword}
-                                    secureTextEntry
-                                />
-                            </View>
+            <View style={styles.divider} />
 
-                            <TouchableOpacity
-                                style={styles.button}
-                                onPress={handleLogin}
-                                disabled={isLoading}
-                                activeOpacity={0.8}
-                            >
-                                <LinearGradient
-                                    colors={darkTheme.colors.gradientPrimary}
-                                    style={styles.buttonGradient}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                >
-                                    {isLoading ? (
-                                        <ActivityIndicator color={darkTheme.colors.white} />
-                                    ) : (
-                                        <Text style={styles.buttonText}>Sign In</Text>
-                                    )}
-                                </LinearGradient>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                onPress={() => navigation.navigate('Register')}
-                                style={styles.linkContainer}
-                            >
-                                <Text style={styles.linkText}>
-                                    Don't have an account? <Text style={styles.linkBold}>Sign Up</Text>
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </KeyboardAvoidingView>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Register')}
+              style={styles.signupLink}
+            >
+              <Text style={styles.signupText}>
+                Don't have an account?{' '}
+                <Text style={styles.signupBold}>Sign Up</Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-    );
+      </KeyboardAvoidingView>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: darkTheme.colors.background,
-    },
-    backgroundOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        overflow: 'hidden',
-    },
-    gradientCircle1: {
-        position: 'absolute',
-        top: -100,
-        left: -100,
-        width: 400,
-        height: 400,
-        borderRadius: 200,
-        backgroundColor: darkTheme.colors.primaryGlow,
-        opacity: 0.5,
-    },
-    gradientCircle2: {
-        position: 'absolute',
-        bottom: -150,
-        right: -100,
-        width: 500,
-        height: 500,
-        borderRadius: 250,
-        backgroundColor: darkTheme.colors.accentGlow,
-        opacity: 0.5,
-    },
-    keyboardView: {
-        flex: 1,
-    },
-    content: {
-        flex: 1,
-        padding: darkTheme.spacing.lg,
-        justifyContent: 'center',
-    },
-    header: {
-        alignItems: 'center',
-        marginBottom: darkTheme.spacing.xl,
-    },
-    title: {
-        fontSize: darkTheme.fontSize.xxxl,
-        fontWeight: darkTheme.fontWeight.extrabold,
-        color: darkTheme.colors.text,
-        marginBottom: darkTheme.spacing.sm,
-        textAlign: 'center',
-        letterSpacing: -0.5,
-    },
-    subtitle: {
-        fontSize: darkTheme.fontSize.md,
-        color: darkTheme.colors.textSecondary,
-        textAlign: 'center',
-    },
-    formCard: {
-        backgroundColor: darkTheme.colors.surface,
-        borderRadius: darkTheme.borderRadius.xxl,
-        padding: darkTheme.spacing.xl,
-        borderWidth: 1,
-        borderColor: darkTheme.colors.border,
-        ...darkTheme.shadows.large,
-    },
-    form: {
-        gap: darkTheme.spacing.lg,
-    },
-    inputContainer: {
-        gap: darkTheme.spacing.sm,
-    },
-    label: {
-        fontSize: darkTheme.fontSize.sm,
-        fontWeight: darkTheme.fontWeight.semibold,
-        color: darkTheme.colors.text,
-    },
-    input: {
-        backgroundColor: darkTheme.colors.card,
-        padding: darkTheme.spacing.md,
-        borderRadius: darkTheme.borderRadius.md,
-        borderWidth: 1,
-        borderColor: darkTheme.colors.border,
-        fontSize: darkTheme.fontSize.md,
-        color: darkTheme.colors.text,
-    },
-    button: {
-        borderRadius: darkTheme.borderRadius.md,
-        overflow: 'hidden',
-        marginTop: darkTheme.spacing.md,
-    },
-    buttonGradient: {
-        padding: darkTheme.spacing.md,
-        alignItems: 'center',
-    },
-    buttonText: {
-        color: darkTheme.colors.white,
-        fontSize: darkTheme.fontSize.md,
-        fontWeight: darkTheme.fontWeight.bold,
-        letterSpacing: 0.5,
-    },
-    linkContainer: {
-        paddingVertical: darkTheme.spacing.sm,
-    },
-    linkText: {
-        color: darkTheme.colors.textSecondary,
-        textAlign: 'center',
-        fontSize: darkTheme.fontSize.sm,
-    },
-    linkBold: {
-        color: darkTheme.colors.primary,
-        fontWeight: darkTheme.fontWeight.bold,
-    },
-    backButtonContainer: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 10,
-        paddingHorizontal: darkTheme.spacing.lg,
-        paddingTop: darkTheme.spacing.sm,
-    },
-    backButton: {
-        paddingVertical: darkTheme.spacing.sm,
-    },
-    backButtonText: {
-        color: darkTheme.colors.primary,
-        fontSize: darkTheme.fontSize.md,
-        fontWeight: darkTheme.fontWeight.semibold,
-    },
+  container: {
+    flex: 1,
+    backgroundColor: newTheme.colors.bg,
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    padding: 20,
+    justifyContent: 'center',
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  logoIcon: {
+    width: 64,
+    height: 64,
+    backgroundColor: newTheme.colors.amber,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: newTheme.colors.text,
+    marginBottom: 4,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: newTheme.colors.text2,
+  },
+  formCard: {
+    backgroundColor: newTheme.colors.bg2,
+    borderWidth: 1,
+    borderColor: newTheme.colors.border,
+    borderRadius: 24,
+    padding: 24,
+  },
+  formGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: newTheme.colors.text3,
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  input: {
+    height: 54,
+    backgroundColor: newTheme.colors.bg3,
+    borderWidth: 1,
+    borderColor: newTheme.colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    fontSize: 15,
+    color: newTheme.colors.text,
+  },
+  btnPrimary: {
+    height: 54,
+    backgroundColor: newTheme.colors.amber,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  btnPrimaryText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: newTheme.colors.bg,
+    letterSpacing: -0.2,
+  },
+  forgotLink: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  forgotText: {
+    fontSize: 13,
+    color: newTheme.colors.amber,
+    fontWeight: '600',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: newTheme.colors.border,
+    marginVertical: 16,
+  },
+  signupLink: {
+    alignItems: 'center',
+  },
+  signupText: {
+    fontSize: 13,
+    color: newTheme.colors.text2,
+  },
+  signupBold: {
+    color: newTheme.colors.amber,
+    fontWeight: '700',
+  },
+  backButtonContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+  },
+  backButton: {
+    paddingVertical: 8,
+  },
+  backButtonText: {
+    color: newTheme.colors.amber,
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });

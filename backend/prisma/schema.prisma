@@ -19,15 +19,20 @@ model User {
   role          String    @default("CUSTOMER") // CUSTOMER, OPERATOR, ADMIN
   phone         String?
   country       String?   // User's country (nullable initially for migration)
-  region        String?   // User's region/state/city (nullable initially for migration)
+  region        String?   // User's region/province (nullable initially for migration)
+  city          String?   // User's city/municipality (nullable initially for migration)
   vehicleType   String?   // User's vehicle type: Car, Bike, Truck, Other (nullable initially)
   fuelType      String?   // User's fuel type: Petrol, Diesel, EV, CNG (nullable initially)
   assignedRegion String?  // For operators - their assigned region
+  assignedStationId String? // For operators - their assigned station
+  resetPasswordToken String? // Token for password reset
+  resetPasswordExpires DateTime? // Expiry time for reset token
   createdAt     DateTime  @default(now())
   
   vehicles      Vehicle[]
   queues        Queue[]
   logs          Log[]
+  assignedStation Station? @relation(fields: [assignedStationId], references: [id])
 }
 
 model Station {
@@ -37,13 +42,15 @@ model Station {
   latitude      Float
   longitude     Float
   country       String?   // Station's country (nullable initially for migration)
-  region        String?   // Station's region (nullable initially for migration)
+  region        String?   // Station's province (nullable initially for migration)
+  city          String?   // Station's city/municipality (nullable initially for migration)
   status        String    @default("OPEN") // OPEN, CLOSED, MAINTENANCE
   totalPumps    Int       @default(4)
   createdAt     DateTime  @default(now())
 
   inventory     StationFuelInventory[]
   queues        Queue[]
+  operators     User[]    // Operators assigned to this station
 }
 
 model FuelType {
@@ -71,7 +78,7 @@ model Vehicle {
   id                String          @id @default(uuid())
   userId            String
   licensePlate      String          @unique
-  registrationNumber String         @unique  // Official vehicle registration number
+  registrationNumber String         // Official vehicle registration number (unique per user)
   type              String          // Car, Motorcycle, Truck, Bus
   fuelTypeId        String
   createdAt         DateTime        @default(now())
@@ -80,6 +87,8 @@ model Vehicle {
   fuelType          FuelType        @relation(fields: [fuelTypeId], references: [id])
   queues            Queue[]
   fuelPurchases     FuelPurchase[]
+  
+  @@unique([userId, registrationNumber])
 }
 
 model Queue {
@@ -139,8 +148,22 @@ model Region {
   createdAt     DateTime  @default(now())
   
   country       Country   @relation(fields: [countryId], references: [id])
+  cities        City[]
   
   @@unique([name, countryId])
+}
+
+model City {
+  id            String    @id @default(uuid())
+  name          String
+  regionId      String
+  latitude      Float     // Center point latitude of the city
+  longitude     Float     // Center point longitude of the city
+  createdAt     DateTime  @default(now())
+  
+  region        Region    @relation(fields: [regionId], references: [id])
+  
+  @@unique([name, regionId])
 }
 
 // Fuel Quota - Weekly limits set by admin for each vehicle type

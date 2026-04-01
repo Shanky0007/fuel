@@ -1,304 +1,357 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  Platform,
+} from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import { darkTheme } from '../theme/darkTheme';
+import { useFocusEffect } from '@react-navigation/native';
+import { newTheme, commonStyles } from '../theme/newTheme';
+import { queueService } from '../services/api';
 
 export default function TicketScreen({ route, navigation }) {
-    const { ticket, queue, position } = route.params;
-    const [ticketInfo, setTicketInfo] = useState(null);
+  const [queueData, setQueueData] = useState(route.params || null);
+  const [loading, setLoading] = useState(!route.params);
+  const [ticketInfo, setTicketInfo] = useState(null);
 
-    useEffect(() => {
-        if (ticket && ticket.qrCodeData) {
-            try {
-                const parsedData = JSON.parse(ticket.qrCodeData);
-                setTicketInfo(parsedData);
-            } catch (error) {
-                console.error('Error parsing ticket data:', error);
-            }
+  useFocusEffect(
+    useCallback(() => {
+      loadMyQueue();
+    }, [])
+  );
+
+  const loadMyQueue = async () => {
+    try {
+      setLoading(true);
+      const data = await queueService.getMyQueue();
+      if (data && data.ticket) {
+        setQueueData(data);
+        if (data.ticket.qrCodeData) {
+          try {
+            setTicketInfo(JSON.parse(data.ticket.qrCodeData));
+          } catch (e) {
+            console.error('Error parsing ticket qr data', e);
+          }
         }
-    }, [ticket]);
+      } else {
+        setQueueData(null);
+        setTicketInfo(null);
+      }
+    } catch (error) {
+      console.error('Failed to load queue status', error);
+      setQueueData(null);
+      setTicketInfo(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  const handleLeaveQueue = () => {
+    const confirmLeave = () => {
+      Alert.alert(
+        'Leave Queue',
+        'Are you sure you want to leave the queue? This cannot be undone.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Leave',
+            style: 'destructive',
+            onPress: executeLeave,
+          },
+        ]
+      );
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to leave the queue? This cannot be undone.')) {
+        executeLeave();
+      }
+    } else {
+      confirmLeave();
+    }
+  };
+
+  const executeLeave = async () => {
+    try {
+      setLoading(true);
+      await queueService.leaveQueue();
+      setQueueData(null);
+      setTicketInfo(null);
+      // If on web, use window alert
+      if (Platform.OS === 'web') {
+        window.alert('You have left the queue.');
+      } else {
+        Alert.alert('Success', 'You have left the queue.');
+      }
+    } catch (error) {
+      if (Platform.OS === 'web') {
+        window.alert('Failed to leave queue.');
+      } else {
+        Alert.alert('Error', 'Failed to leave queue.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
     return (
-        <View style={styles.container}>
-            <ScrollView contentContainerStyle={styles.scrollContent}>
-                <View style={styles.header}>
-                    <Text style={styles.title}>Your E-Ticket</Text>
-                    <Text style={styles.subtitle}>Show this to the operator</Text>
-                </View>
-
-                <View style={styles.ticketCard}>
-                    {/* QR Code Section */}
-                    <View style={styles.qrSection}>
-                        <View style={styles.qrContainer}>
-                            <QRCode
-                                value={ticket?.qrCodeData || 'No data'}
-                                size={220}
-                                color={darkTheme.colors.text}
-                                backgroundColor={darkTheme.colors.surface}
-                            />
-                        </View>
-
-                        {/* Verification Code Display */}
-                        <View style={styles.verificationContainer}>
-                            <Text style={styles.verificationLabel}>Verification Code</Text>
-                            <View style={styles.verificationCodeBox}>
-                                <Text style={styles.verificationCode}>
-                                    {ticket?.verificationCode || '------'}
-                                </Text>
-                            </View>
-                            <Text style={styles.verificationHint}>
-                                Show this code if QR scanning doesn't work
-                            </Text>
-                        </View>
-                    </View>
-
-                    {/* Ticket Info */}
-                    <View style={styles.infoSection}>
-                        <View style={styles.positionBadge}>
-                            <Text style={styles.positionLabel}>Queue Position</Text>
-                            <Text style={styles.positionValue}>#{position || '?'}</Text>
-                        </View>
-
-                        {ticketInfo && (
-                            <View style={styles.detailsContainer}>
-                                <View style={styles.detailRow}>
-                                    <Text style={styles.detailLabel}>Station:</Text>
-                                    <Text style={styles.detailValue}>{ticketInfo.stationName}</Text>
-                                </View>
-                                <View style={styles.detailRow}>
-                                    <Text style={styles.detailLabel}>Location:</Text>
-                                    <Text style={styles.detailValue}>
-                                        {ticketInfo.stationRegion}, {ticketInfo.stationCountry}
-                                    </Text>
-                                </View>
-                                <View style={styles.detailRow}>
-                                    <Text style={styles.detailLabel}>Vehicle:</Text>
-                                    <Text style={styles.detailValue}>{ticketInfo.vehicleType}</Text>
-                                </View>
-                                <View style={styles.detailRow}>
-                                    <Text style={styles.detailLabel}>Fuel Type:</Text>
-                                    <Text style={styles.detailValue}>{ticketInfo.fuelType}</Text>
-                                </View>
-                            </View>
-                        )}
-                    </View>
-
-                    {/* Divider */}
-                    <View style={styles.divider}>
-                        <View style={styles.dividerDot} />
-                        <View style={styles.dividerLine} />
-                        <View style={styles.dividerDot} />
-                    </View>
-
-                    {/* Instructions */}
-                    <View style={styles.instructionsSection}>
-                        <Text style={styles.instructionsTitle}>How to use:</Text>
-                        <View style={styles.instructionItem}>
-                            <Text style={styles.instructionNumber}>1</Text>
-                            <Text style={styles.instructionText}>Arrive at the station</Text>
-                        </View>
-                        <View style={styles.instructionItem}>
-                            <Text style={styles.instructionNumber}>2</Text>
-                            <Text style={styles.instructionText}>Show QR code to operator</Text>
-                        </View>
-                        <View style={styles.instructionItem}>
-                            <Text style={styles.instructionNumber}>3</Text>
-                            <Text style={styles.instructionText}>Get your fuel and go!</Text>
-                        </View>
-                    </View>
-                </View>
-
-                {/* Action Buttons */}
-                <View style={styles.actions}>
-                    <TouchableOpacity
-                        style={styles.secondaryButton}
-                        onPress={() => navigation.navigate('StationList')}
-                    >
-                        <Text style={styles.secondaryButtonText}>Back to Home</Text>
-                    </TouchableOpacity>
-                </View>
-            </ScrollView>
-        </View>
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={newTheme.colors.amber} />
+      </View>
     );
+  }
+
+  if (!queueData || !queueData.ticket) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <Text style={{ fontSize: 60, marginBottom: 20 }}>🎫</Text>
+        <Text style={[styles.h2, { textAlign: 'center', marginBottom: 10 }]}>No Active Ticket</Text>
+        <Text style={[styles.body, { textAlign: 'center', marginBottom: 30 }]}>
+          You are not currently in any queue. Browse stations to join a queue.
+        </Text>
+        <TouchableOpacity
+          style={styles.primaryBtn}
+          onPress={() => navigation.navigate('StationList')}
+        >
+          <Text style={styles.primaryBtnText}>Browse Stations</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const { ticket, position } = queueData;
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.h1}>My Ticket</Text>
+      </View>
+
+      <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+        
+        <View style={styles.ticketCard}>
+          <View style={styles.qrSection}>
+            <View style={styles.qrContainer}>
+              <QRCode
+                value={ticket?.qrCodeData || 'No data'}
+                size={220}
+                color={newTheme.colors.bg2}
+                backgroundColor={newTheme.colors.white}
+              />
+            </View>
+
+            <View style={styles.verificationContainer}>
+              <Text style={styles.verificationLabel}>Verification Code</Text>
+              <View style={styles.verificationCodeBox}>
+                <Text style={styles.verificationCode}>
+                  {ticket?.verificationCode || '------'}
+                </Text>
+              </View>
+              <Text style={styles.verificationHint}>
+                Show this code if QR scanning doesn't work
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.divider}>
+            <View style={styles.dividerDot} />
+            <View style={styles.dividerLine} />
+            <View style={styles.dividerDot} />
+          </View>
+
+          <View style={styles.infoSection}>
+            <View style={styles.positionBadge}>
+              <Text style={styles.positionLabel}>Position in Queue</Text>
+              <Text style={styles.positionValue}>#{position || '?'}</Text>
+            </View>
+
+            {ticketInfo && (
+              <View style={styles.detailsContainer}>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Station:</Text>
+                  <Text style={styles.detailValue}>{ticketInfo.stationName}</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Vehicle:</Text>
+                  <Text style={styles.detailValue}>{ticketInfo.vehicleType}</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Fuel Type:</Text>
+                  <Text style={styles.detailValue}>{ticketInfo.fuelType}</Text>
+                </View>
+              </View>
+            )}
+          </View>
+
+          <TouchableOpacity style={styles.leaveBtn} onPress={handleLeaveQueue}>
+            <Text style={styles.leaveBtnText}>Leave Queue</Text>
+          </TouchableOpacity>
+        </View>
+
+      </ScrollView>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: darkTheme.colors.background,
-    },
-    scrollContent: {
-        flexGrow: 1,
-        padding: darkTheme.spacing.lg,
-        paddingTop: darkTheme.spacing.xxl,
-    },
-    header: {
-        alignItems: 'center',
-        marginBottom: darkTheme.spacing.xl,
-    },
-    title: {
-        fontSize: darkTheme.fontSize.xxxl,
-        fontWeight: darkTheme.fontWeight.bold,
-        color: darkTheme.colors.text,
-        marginBottom: darkTheme.spacing.xs,
-    },
-    subtitle: {
-        fontSize: darkTheme.fontSize.md,
-        color: darkTheme.colors.textSecondary,
-    },
-    ticketCard: {
-        backgroundColor: darkTheme.colors.card,
-        borderRadius: darkTheme.borderRadius.xl,
-        padding: darkTheme.spacing.xl,
-        ...darkTheme.shadows.large,
-    },
-    qrSection: {
-        alignItems: 'center',
-        marginBottom: darkTheme.spacing.xl,
-    },
-    qrContainer: {
-        padding: darkTheme.spacing.lg,
-        backgroundColor: darkTheme.colors.surface,
-        borderRadius: darkTheme.borderRadius.lg,
-        ...darkTheme.shadows.medium,
-    },
-    verificationContainer: {
-        marginTop: darkTheme.spacing.lg,
-        alignItems: 'center',
-    },
-    verificationLabel: {
-        fontSize: darkTheme.fontSize.sm,
-        color: darkTheme.colors.textSecondary,
-        fontWeight: darkTheme.fontWeight.medium,
-        marginBottom: darkTheme.spacing.sm,
-    },
-    verificationCodeBox: {
-        backgroundColor: darkTheme.colors.surface,
-        borderRadius: darkTheme.borderRadius.md,
-        paddingVertical: darkTheme.spacing.md,
-        paddingHorizontal: darkTheme.spacing.xl,
-        borderWidth: 2,
-        borderColor: darkTheme.colors.primary,
-        borderStyle: 'dashed',
-    },
-    verificationCode: {
-        fontSize: 28,
-        fontWeight: darkTheme.fontWeight.bold,
-        color: darkTheme.colors.primary,
-        letterSpacing: 4,
-        fontFamily: 'monospace',
-    },
-    verificationHint: {
-        marginTop: darkTheme.spacing.sm,
-        fontSize: darkTheme.fontSize.xs,
-        color: darkTheme.colors.textTertiary,
-        textAlign: 'center',
-    },
-    infoSection: {
-        gap: darkTheme.spacing.md,
-        marginBottom: darkTheme.spacing.lg,
-    },
-    positionBadge: {
-        backgroundColor: darkTheme.colors.primary,
-        borderRadius: darkTheme.borderRadius.lg,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: darkTheme.spacing.md,
-    },
-    positionLabel: {
-        fontSize: darkTheme.fontSize.md,
-        fontWeight: darkTheme.fontWeight.semibold,
-        color: darkTheme.colors.text,
-    },
-    positionValue: {
-        fontSize: darkTheme.fontSize.xxxl,
-        fontWeight: darkTheme.fontWeight.bold,
-        color: darkTheme.colors.text,
-    },
-    detailsContainer: {
-        backgroundColor: darkTheme.colors.surface,
-        borderRadius: darkTheme.borderRadius.md,
-        padding: darkTheme.spacing.md,
-        gap: darkTheme.spacing.sm,
-    },
-    detailRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: darkTheme.spacing.xs,
-    },
-    detailLabel: {
-        fontSize: darkTheme.fontSize.sm,
-        color: darkTheme.colors.textSecondary,
-        fontWeight: darkTheme.fontWeight.medium,
-    },
-    detailValue: {
-        fontSize: darkTheme.fontSize.sm,
-        color: darkTheme.colors.text,
-        fontWeight: darkTheme.fontWeight.semibold,
-    },
-    divider: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginVertical: darkTheme.spacing.lg,
-    },
-    dividerLine: {
-        flex: 1,
-        height: 2,
-        backgroundColor: darkTheme.colors.border,
-    },
-    dividerDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: darkTheme.colors.border,
-    },
-    instructionsSection: {
-        gap: darkTheme.spacing.md,
-    },
-    instructionsTitle: {
-        fontSize: darkTheme.fontSize.md,
-        fontWeight: darkTheme.fontWeight.bold,
-        color: darkTheme.colors.text,
-        marginBottom: darkTheme.spacing.xs,
-    },
-    instructionItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: darkTheme.spacing.md,
-    },
-    instructionNumber: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        backgroundColor: darkTheme.colors.primary,
-        color: darkTheme.colors.text,
-        fontSize: darkTheme.fontSize.sm,
-        fontWeight: darkTheme.fontWeight.bold,
-        textAlign: 'center',
-        lineHeight: 28,
-    },
-    instructionText: {
-        flex: 1,
-        fontSize: darkTheme.fontSize.sm,
-        color: darkTheme.colors.textSecondary,
-    },
-    actions: {
-        marginTop: darkTheme.spacing.xl,
-        gap: darkTheme.spacing.md,
-    },
-    secondaryButton: {
-        backgroundColor: darkTheme.colors.surface,
-        padding: darkTheme.spacing.md,
-        borderRadius: darkTheme.borderRadius.md,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: darkTheme.colors.border,
-    },
-    secondaryButtonText: {
-        color: darkTheme.colors.text,
-        fontWeight: darkTheme.fontWeight.bold,
-        fontSize: darkTheme.fontSize.md,
-    },
+  container: {
+    flex: 1,
+    backgroundColor: newTheme.colors.bg,
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
+  },
+  h1: {
+    ...commonStyles.h1,
+  },
+  h2: {
+    ...commonStyles.h2,
+  },
+  body: {
+    ...commonStyles.body,
+  },
+  scrollArea: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  primaryBtn: {
+    backgroundColor: newTheme.colors.amber,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: newTheme.borderRadius.lg,
+  },
+  primaryBtnText: {
+    color: newTheme.colors.bg,
+    fontSize: newTheme.fontSize.lg,
+    fontWeight: newTheme.fontWeight.bold,
+  },
+  ticketCard: {
+    backgroundColor: newTheme.colors.bg3,
+    borderRadius: newTheme.borderRadius.xxl,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: newTheme.colors.border,
+    alignItems: 'center',
+  },
+  qrSection: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  qrContainer: {
+    padding: 16,
+    backgroundColor: newTheme.colors.white,
+    borderRadius: newTheme.borderRadius.lg,
+    marginBottom: 20,
+  },
+  verificationContainer: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  verificationLabel: {
+    color: newTheme.colors.text3,
+    fontSize: newTheme.fontSize.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  verificationCodeBox: {
+    backgroundColor: newTheme.colors.bg2,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: newTheme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: newTheme.colors.amberGlow,
+  },
+  verificationCode: {
+    color: newTheme.colors.amber,
+    fontSize: newTheme.fontSize.massive,
+    fontWeight: 'bold',
+    letterSpacing: 4,
+  },
+  verificationHint: {
+    color: newTheme.colors.text3,
+    fontSize: newTheme.fontSize.xs,
+    marginTop: 8,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginVertical: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: newTheme.colors.border,
+  },
+  dividerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: newTheme.colors.border,
+  },
+  infoSection: {
+    width: '100%',
+    marginBottom: 24,
+  },
+  positionBadge: {
+    backgroundColor: newTheme.colors.amberGlow,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: newTheme.borderRadius.xl,
+    marginBottom: 16,
+  },
+  positionLabel: {
+    color: newTheme.colors.amber,
+    fontSize: newTheme.fontSize.lg,
+    fontWeight: newTheme.fontWeight.semibold,
+  },
+  positionValue: {
+    color: newTheme.colors.amber,
+    fontSize: newTheme.fontSize.huge,
+    fontWeight: newTheme.fontWeight.bold,
+  },
+  detailsContainer: {
+    backgroundColor: newTheme.colors.bg2,
+    borderRadius: newTheme.borderRadius.lg,
+    padding: 16,
+    gap: 12,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  detailLabel: {
+    color: newTheme.colors.text2,
+    fontSize: newTheme.fontSize.base,
+  },
+  detailValue: {
+    color: newTheme.colors.text,
+    fontSize: newTheme.fontSize.lg,
+    fontWeight: newTheme.fontWeight.medium,
+  },
+  leaveBtn: {
+    width: '100%',
+    backgroundColor: 'rgba(248,113,113,0.1)',
+    paddingVertical: 16,
+    borderRadius: newTheme.borderRadius.lg,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(248,113,113,0.3)',
+  },
+  leaveBtnText: {
+    color: newTheme.colors.red,
+    fontSize: newTheme.fontSize.lg,
+    fontWeight: newTheme.fontWeight.semibold,
+  },
 });

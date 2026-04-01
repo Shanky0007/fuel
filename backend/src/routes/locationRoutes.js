@@ -11,6 +11,9 @@ router.get('/countries/:countryId', locationController.getCountryById);
 // GET /api/locations/countries/:countryId/regions - Get regions for a country
 router.get('/countries/:countryId/regions', locationController.getRegionsByCountry);
 
+// GET /api/locations/regions/:regionId/cities - Get cities for a region
+router.get('/regions/:regionId/cities', locationController.getCitiesByRegion);
+
 // POST /api/locations/validate - Validate country and region combination
 router.post('/validate', locationController.validateLocation);
 

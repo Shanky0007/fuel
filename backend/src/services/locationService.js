@@ -47,6 +47,30 @@ class LocationService {
   }
 
   /**
+   * Get cities for a specific region
+   * @param {string} regionId - The region ID
+   * @returns {Promise<Array>} List of cities for the region
+   */
+  async getCitiesByRegion(regionId) {
+    try {
+      const cities = await prisma.city.findMany({
+        where: { regionId },
+        orderBy: { name: 'asc' },
+        select: {
+          id: true,
+          name: true,
+          regionId: true,
+          latitude: true,
+          longitude: true,
+        },
+      });
+      return cities;
+    } catch (error) {
+      throw new Error(`Failed to fetch cities: ${error.message}`);
+    }
+  }
+
+  /**
    * Get a specific country by ID
    * @param {string} countryId - The country ID
    * @returns {Promise<Object>} Country object

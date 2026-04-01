@@ -13,15 +13,14 @@ import {
     Alert,
     Platform,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { OperatorAuthContext } from '../../context/OperatorAuthContext';
 import { ticketService, operatorQueueService } from '../../services/operatorApi';
-import { darkTheme } from '../../theme/darkTheme';
+import { newTheme } from '../../theme/newTheme';
 
 
 export default function OperatorDashboardScreen() {
-    const { operator, logout } = useContext(OperatorAuthContext);
+    const { operator, logout, isLoading: authLoading } = useContext(OperatorAuthContext);
     const [activeTab, setActiveTab] = useState('scan');
     const [queue, setQueue] = useState([]);
     const [scanResult, setScanResult] = useState(null);
@@ -33,9 +32,21 @@ export default function OperatorDashboardScreen() {
     const [permission, requestPermission] = useCameraPermissions();
     const hasScannedRef = useRef(false);
 
+    // Show loading while auth is initializing
+    if (authLoading || !operator || !operator.id) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color={newTheme.colors.amber} />
+                <Text style={{ color: newTheme.colors.text2, marginTop: 16 }}>Loading...</Text>
+            </View>
+        );
+    }
+
     useEffect(() => {
-        loadQueue();
-    }, [activeTab]);
+        if (operator && operator.id) {
+            loadQueue();
+        }
+    }, [activeTab, operator]);
 
     const loadQueue = async () => {
         try {
@@ -46,6 +57,8 @@ export default function OperatorDashboardScreen() {
             setQueue(activeQueues);
         } catch (error) {
             console.error('Failed to load queue:', error);
+            // If error, set empty queue to show empty state
+            setQueue([]);
         } finally {
             setRefreshing(false);
         }
@@ -229,13 +242,7 @@ export default function OperatorDashboardScreen() {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor={darkTheme.colors.background} />
-
-            {/* Background glow effects */}
-            <View style={styles.backgroundOverlay}>
-                <View style={styles.gradientCircle1} />
-                <View style={styles.gradientCircle2} />
-            </View>
+            <StatusBar barStyle="light-content" backgroundColor={newTheme.colors.bg} />
 
             {/* Header */}
             <SafeAreaView>
@@ -305,15 +312,9 @@ export default function OperatorDashboardScreen() {
                                     style={styles.scanButton}
                                     onPress={startScanning}
                                     disabled={loading}
+                                    activeOpacity={0.8}
                                 >
-                                    <LinearGradient
-                                        colors={darkTheme.colors.gradientSuccess}
-                                        style={styles.scanButtonGradient}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 0 }}
-                                    >
-                                        <Text style={styles.scanButtonText}>Start Camera</Text>
-                                    </LinearGradient>
+                                    <Text style={styles.scanButtonText}>Start Camera</Text>
                                 </TouchableOpacity>
                             </View>
                         )}
@@ -330,7 +331,7 @@ export default function OperatorDashboardScreen() {
                             value={verificationCode}
                             onChangeText={(text) => setVerificationCode(text.toUpperCase().slice(0, 6))}
                             placeholder="ABC123"
-                            placeholderTextColor={darkTheme.colors.textTertiary}
+                            placeholderTextColor={newTheme.colors.text3}
                             maxLength={6}
                             autoCapitalize="characters"
                         />
@@ -341,17 +342,11 @@ export default function OperatorDashboardScreen() {
                             ]}
                             onPress={handleVerifyCode}
                             disabled={loading || verificationCode.length !== 6}
+                            activeOpacity={0.8}
                         >
-                            <LinearGradient
-                                colors={verificationCode.length === 6 ? darkTheme.colors.gradientPrimary : [darkTheme.colors.disabled, darkTheme.colors.disabled]}
-                                style={styles.verifyButtonGradient}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                            >
-                                <Text style={styles.verifyButtonText}>
-                                    {loading ? 'Verifying...' : 'Verify Code'}
-                                </Text>
-                            </LinearGradient>
+                            <Text style={styles.verifyButtonText}>
+                                {loading ? 'Verifying...' : 'Verify Code'}
+                            </Text>
                         </TouchableOpacity>
                     </View>
 
@@ -385,10 +380,10 @@ export default function OperatorDashboardScreen() {
                                                     {
                                                         width: `${Math.min(100, (scanResult.data.fuelQuotaInfo.consumedThisWeek / scanResult.data.fuelQuotaInfo.weeklyLimit) * 100)}%`,
                                                         backgroundColor: scanResult.data.fuelQuotaInfo.remaining <= 0
-                                                            ? darkTheme.colors.error
+                                                            ? newTheme.colors.red
                                                             : scanResult.data.fuelQuotaInfo.remaining < scanResult.data.fuelQuotaInfo.weeklyLimit * 0.2
-                                                                ? darkTheme.colors.warning
-                                                                : darkTheme.colors.success,
+                                                                ? newTheme.colors.amber
+                                                                : newTheme.colors.green,
                                                     },
                                                 ]} />
                                             </View>
@@ -412,8 +407,8 @@ export default function OperatorDashboardScreen() {
                         <RefreshControl
                             refreshing={refreshing}
                             onRefresh={onRefresh}
-                            colors={[darkTheme.colors.primary]}
-                            tintColor={darkTheme.colors.primary}
+                            colors={[newTheme.colors.amber]}
+                            tintColor={newTheme.colors.amber}
                         />
                     }
                 >
@@ -434,12 +429,9 @@ export default function OperatorDashboardScreen() {
                         queue.map((item, index) => (
                             <View key={item.id} style={styles.queueCard}>
                                 <View style={styles.queueCardHeader}>
-                                    <LinearGradient
-                                        colors={darkTheme.colors.gradientPrimary}
-                                        style={styles.positionBadge}
-                                    >
+                                    <View style={styles.positionBadge}>
                                         <Text style={styles.positionText}>#{index + 1}</Text>
-                                    </LinearGradient>
+                                    </View>
                                     <View style={[
                                         styles.statusBadge,
                                         item.status === 'SERVING' ? styles.statusServing : styles.statusWaiting
@@ -494,10 +486,10 @@ export default function OperatorDashboardScreen() {
                                                 {
                                                     width: `${Math.min(100, (item.fuelQuotaInfo.consumedThisWeek / item.fuelQuotaInfo.weeklyLimit) * 100)}%`,
                                                     backgroundColor: item.fuelQuotaInfo.remaining <= 0
-                                                        ? darkTheme.colors.error
+                                                        ? newTheme.colors.red
                                                         : item.fuelQuotaInfo.remaining < item.fuelQuotaInfo.weeklyLimit * 0.2
-                                                            ? darkTheme.colors.warning
-                                                            : darkTheme.colors.success,
+                                                            ? newTheme.colors.amber
+                                                            : newTheme.colors.green,
                                                 },
                                             ]} />
                                         </View>
@@ -533,7 +525,7 @@ export default function OperatorDashboardScreen() {
                                                             value={String(fuelAmounts[item.id] ?? (item.fuelQuotaInfo?.remaining ?? ''))}
                                                             onChangeText={(text) => handleFuelAmountChange(item.id, text)}
                                                             placeholder="Enter liters"
-                                                            placeholderTextColor={darkTheme.colors.textTertiary}
+                                                            placeholderTextColor={newTheme.colors.text3}
                                                             keyboardType="numeric"
                                                             selectTextOnFocus
                                                         />
@@ -550,17 +542,11 @@ export default function OperatorDashboardScreen() {
                                                 <TouchableOpacity
                                                     style={styles.completeButton}
                                                     onPress={() => handleComplete(item.id, item)}
+                                                    activeOpacity={0.8}
                                                 >
-                                                    <LinearGradient
-                                                        colors={darkTheme.colors.gradientSuccess}
-                                                        style={styles.completeButtonGradient}
-                                                        start={{ x: 0, y: 0 }}
-                                                        end={{ x: 1, y: 0 }}
-                                                    >
-                                                        <Text style={styles.completeButtonText}>
-                                                            ✅ Dispense {getFuelAmountForItem(item)}L & Complete
-                                                        </Text>
-                                                    </LinearGradient>
+                                                    <Text style={styles.completeButtonText}>
+                                                        ✅ Dispense {getFuelAmountForItem(item)}L & Complete
+                                                    </Text>
                                                 </TouchableOpacity>
                                             </>
                                         )}
@@ -578,42 +564,14 @@ export default function OperatorDashboardScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: darkTheme.colors.background,
-    },
-    backgroundOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        overflow: 'hidden',
-    },
-    gradientCircle1: {
-        position: 'absolute',
-        top: -100,
-        left: -100,
-        width: 400,
-        height: 400,
-        borderRadius: 200,
-        backgroundColor: darkTheme.colors.successGlow,
-        opacity: 0.3,
-    },
-    gradientCircle2: {
-        position: 'absolute',
-        bottom: -150,
-        right: -100,
-        width: 500,
-        height: 500,
-        borderRadius: 250,
-        backgroundColor: darkTheme.colors.primaryGlow,
-        opacity: 0.3,
+        backgroundColor: newTheme.colors.bg,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: darkTheme.spacing.lg,
-        paddingVertical: darkTheme.spacing.md,
+        paddingHorizontal: 20,
+        paddingVertical: 16,
     },
     headerLeft: {
         flexDirection: 'row',
@@ -621,187 +579,186 @@ const styles = StyleSheet.create({
     },
     headerIcon: {
         fontSize: 36,
-        marginRight: darkTheme.spacing.md,
+        marginRight: 16,
     },
     headerTitle: {
-        fontSize: darkTheme.fontSize.lg,
-        fontWeight: darkTheme.fontWeight.bold,
-        color: darkTheme.colors.text,
+        fontSize: 16,
+        fontWeight: '700',
+        color: newTheme.colors.text,
     },
     headerSubtitle: {
-        fontSize: darkTheme.fontSize.sm,
-        color: darkTheme.colors.textSecondary,
+        fontSize: 12,
+        color: newTheme.colors.text2,
     },
     logoutButton: {
-        backgroundColor: darkTheme.colors.card,
-        paddingHorizontal: darkTheme.spacing.md,
-        paddingVertical: darkTheme.spacing.sm,
-        borderRadius: darkTheme.borderRadius.md,
+        backgroundColor: newTheme.colors.bg3,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 10,
         borderWidth: 1,
-        borderColor: darkTheme.colors.border,
+        borderColor: newTheme.colors.border,
     },
     logoutText: {
-        color: darkTheme.colors.error,
-        fontWeight: darkTheme.fontWeight.semibold,
+        color: newTheme.colors.red,
+        fontWeight: '600',
+        fontSize: 13,
     },
     tabs: {
         flexDirection: 'row',
-        backgroundColor: darkTheme.colors.surface,
-        marginHorizontal: darkTheme.spacing.lg,
-        marginVertical: darkTheme.spacing.md,
-        borderRadius: darkTheme.borderRadius.lg,
-        padding: darkTheme.spacing.xs,
+        backgroundColor: newTheme.colors.bg2,
+        marginHorizontal: 20,
+        marginVertical: 16,
+        borderRadius: 14,
+        padding: 4,
         borderWidth: 1,
-        borderColor: darkTheme.colors.border,
+        borderColor: newTheme.colors.border,
     },
     tab: {
         flex: 1,
-        paddingVertical: darkTheme.spacing.md,
+        paddingVertical: 12,
         alignItems: 'center',
-        borderRadius: darkTheme.borderRadius.md,
+        borderRadius: 10,
     },
     tabActive: {
-        backgroundColor: darkTheme.colors.card,
+        backgroundColor: newTheme.colors.bg3,
     },
     tabText: {
-        color: darkTheme.colors.textSecondary,
-        fontWeight: darkTheme.fontWeight.semibold,
-        fontSize: darkTheme.fontSize.sm,
+        color: newTheme.colors.text2,
+        fontWeight: '600',
+        fontSize: 13,
     },
     tabTextActive: {
-        color: darkTheme.colors.primary,
+        color: newTheme.colors.amber,
     },
     content: {
         flex: 1,
     },
     scrollContent: {
-        padding: darkTheme.spacing.lg,
-        gap: darkTheme.spacing.lg,
+        padding: 20,
+        gap: 20,
     },
     card: {
-        backgroundColor: darkTheme.colors.surface,
-        borderRadius: darkTheme.borderRadius.xl,
-        padding: darkTheme.spacing.lg,
+        backgroundColor: newTheme.colors.bg2,
+        borderRadius: 20,
+        padding: 20,
         borderWidth: 1,
-        borderColor: darkTheme.colors.border,
-        ...darkTheme.shadows.medium,
+        borderColor: newTheme.colors.border,
     },
     cardTitle: {
-        fontSize: darkTheme.fontSize.lg,
-        fontWeight: darkTheme.fontWeight.bold,
-        color: darkTheme.colors.text,
-        marginBottom: darkTheme.spacing.md,
+        fontSize: 16,
+        fontWeight: '700',
+        color: newTheme.colors.text,
+        marginBottom: 16,
     },
     cameraContainer: {
-        borderRadius: darkTheme.borderRadius.md,
+        borderRadius: 12,
         overflow: 'hidden',
     },
     camera: {
         height: 300,
-        borderRadius: darkTheme.borderRadius.md,
+        borderRadius: 12,
     },
     stopButton: {
-        backgroundColor: darkTheme.colors.error,
-        paddingVertical: darkTheme.spacing.md,
+        backgroundColor: newTheme.colors.red,
+        paddingVertical: 14,
         alignItems: 'center',
-        marginTop: darkTheme.spacing.md,
-        borderRadius: darkTheme.borderRadius.md,
+        marginTop: 16,
+        borderRadius: 12,
     },
     stopButtonText: {
-        color: darkTheme.colors.white,
-        fontWeight: darkTheme.fontWeight.semibold,
+        color: 'white',
+        fontWeight: '600',
     },
     scannerPlaceholder: {
         alignItems: 'center',
-        paddingVertical: darkTheme.spacing.xl,
+        paddingVertical: 32,
     },
     scannerIcon: {
         fontSize: 64,
-        marginBottom: darkTheme.spacing.md,
+        marginBottom: 16,
     },
     scannerText: {
-        color: darkTheme.colors.textSecondary,
-        marginBottom: darkTheme.spacing.lg,
+        color: newTheme.colors.text2,
+        marginBottom: 20,
     },
     scanButton: {
-        borderRadius: darkTheme.borderRadius.md,
-        overflow: 'hidden',
-        ...darkTheme.shadows.medium,
-    },
-    scanButtonGradient: {
-        paddingVertical: darkTheme.spacing.md,
-        paddingHorizontal: darkTheme.spacing.xl,
+        height: 54,
+        backgroundColor: newTheme.colors.green,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 32,
     },
     scanButtonText: {
-        color: darkTheme.colors.white,
-        fontWeight: darkTheme.fontWeight.bold,
-        fontSize: darkTheme.fontSize.md,
+        color: newTheme.colors.bg,
+        fontWeight: '700',
+        fontSize: 16,
     },
     codeHint: {
-        color: darkTheme.colors.textSecondary,
-        fontSize: darkTheme.fontSize.sm,
-        marginBottom: darkTheme.spacing.md,
+        color: newTheme.colors.text2,
+        fontSize: 13,
+        marginBottom: 16,
     },
     codeInput: {
-        backgroundColor: darkTheme.colors.card,
+        backgroundColor: newTheme.colors.bg3,
         borderWidth: 1,
-        borderColor: darkTheme.colors.border,
-        borderRadius: darkTheme.borderRadius.md,
-        padding: darkTheme.spacing.md,
-        fontSize: darkTheme.fontSize.xl,
+        borderColor: newTheme.colors.border,
+        borderRadius: 12,
+        padding: 14,
+        fontSize: 20,
         textAlign: 'center',
         letterSpacing: 8,
-        fontWeight: darkTheme.fontWeight.bold,
-        color: darkTheme.colors.text,
-        marginBottom: darkTheme.spacing.md,
+        fontWeight: '700',
+        color: newTheme.colors.text,
+        marginBottom: 16,
     },
     verifyButton: {
-        borderRadius: darkTheme.borderRadius.md,
-        overflow: 'hidden',
+        height: 54,
+        backgroundColor: newTheme.colors.amber,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     verifyButtonDisabled: {
-        opacity: 0.6,
-    },
-    verifyButtonGradient: {
-        paddingVertical: darkTheme.spacing.md,
-        alignItems: 'center',
+        opacity: 0.5,
     },
     verifyButtonText: {
-        color: darkTheme.colors.white,
-        fontWeight: darkTheme.fontWeight.bold,
+        color: newTheme.colors.bg,
+        fontWeight: '700',
+        fontSize: 16,
     },
     resultCard: {
-        padding: darkTheme.spacing.lg,
-        borderRadius: darkTheme.borderRadius.xl,
+        padding: 20,
+        borderRadius: 20,
         borderWidth: 1,
     },
     resultSuccess: {
-        backgroundColor: 'rgba(16, 185, 129, 0.15)',
-        borderColor: darkTheme.colors.success,
+        backgroundColor: newTheme.colors.greenGlow,
+        borderColor: newTheme.colors.green,
     },
     resultError: {
-        backgroundColor: 'rgba(239, 68, 68, 0.15)',
-        borderColor: darkTheme.colors.error,
+        backgroundColor: 'rgba(248,113,113,0.15)',
+        borderColor: newTheme.colors.red,
     },
     resultTitleSuccess: {
-        fontSize: darkTheme.fontSize.lg,
-        fontWeight: darkTheme.fontWeight.bold,
-        color: darkTheme.colors.success,
-        marginBottom: darkTheme.spacing.sm,
+        fontSize: 16,
+        fontWeight: '700',
+        color: newTheme.colors.green,
+        marginBottom: 8,
     },
     resultTitleError: {
-        fontSize: darkTheme.fontSize.lg,
-        fontWeight: darkTheme.fontWeight.bold,
-        color: darkTheme.colors.error,
-        marginBottom: darkTheme.spacing.sm,
+        fontSize: 16,
+        fontWeight: '700',
+        color: newTheme.colors.red,
+        marginBottom: 8,
     },
     resultText: {
-        fontSize: darkTheme.fontSize.sm,
-        color: darkTheme.colors.textSecondary,
+        fontSize: 13,
+        color: newTheme.colors.text2,
     },
     resultTextError: {
-        fontSize: darkTheme.fontSize.sm,
-        color: darkTheme.colors.errorLight,
+        fontSize: 13,
+        color: newTheme.colors.red,
     },
     queueHeader: {
         flexDirection: 'row',
@@ -809,84 +766,85 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     refreshButton: {
-        backgroundColor: darkTheme.colors.card,
-        paddingHorizontal: darkTheme.spacing.md,
-        paddingVertical: darkTheme.spacing.sm,
-        borderRadius: darkTheme.borderRadius.md,
+        backgroundColor: newTheme.colors.bg3,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 10,
         borderWidth: 1,
-        borderColor: darkTheme.colors.border,
+        borderColor: newTheme.colors.border,
     },
     refreshButtonText: {
-        color: darkTheme.colors.textSecondary,
-        fontWeight: darkTheme.fontWeight.semibold,
+        color: newTheme.colors.text2,
+        fontWeight: '600',
+        fontSize: 13,
     },
     emptyState: {
-        backgroundColor: darkTheme.colors.surface,
-        padding: darkTheme.spacing.xxl,
-        borderRadius: darkTheme.borderRadius.xl,
+        backgroundColor: newTheme.colors.bg2,
+        padding: 40,
+        borderRadius: 20,
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: darkTheme.colors.border,
+        borderColor: newTheme.colors.border,
     },
     emptyIcon: {
         fontSize: 48,
-        marginBottom: darkTheme.spacing.md,
+        marginBottom: 16,
     },
     emptyTitle: {
-        fontSize: darkTheme.fontSize.lg,
-        fontWeight: darkTheme.fontWeight.bold,
-        color: darkTheme.colors.text,
-        marginBottom: darkTheme.spacing.xs,
+        fontSize: 16,
+        fontWeight: '700',
+        color: newTheme.colors.text,
+        marginBottom: 4,
     },
     emptyText: {
-        color: darkTheme.colors.textSecondary,
+        color: newTheme.colors.text2,
     },
     queueCard: {
-        backgroundColor: darkTheme.colors.surface,
-        padding: darkTheme.spacing.lg,
-        borderRadius: darkTheme.borderRadius.xl,
+        backgroundColor: newTheme.colors.bg2,
+        padding: 20,
+        borderRadius: 20,
         borderWidth: 1,
-        borderColor: darkTheme.colors.border,
-        ...darkTheme.shadows.medium,
+        borderColor: newTheme.colors.border,
     },
     queueCardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: darkTheme.spacing.md,
+        marginBottom: 16,
     },
     positionBadge: {
-        paddingHorizontal: darkTheme.spacing.md,
-        paddingVertical: darkTheme.spacing.xs,
-        borderRadius: darkTheme.borderRadius.round,
+        paddingHorizontal: 16,
+        paddingVertical: 4,
+        borderRadius: 20,
+        backgroundColor: newTheme.colors.amber,
     },
     positionText: {
-        color: darkTheme.colors.white,
-        fontWeight: darkTheme.fontWeight.bold,
+        color: newTheme.colors.bg,
+        fontWeight: '700',
     },
     statusBadge: {
-        paddingHorizontal: darkTheme.spacing.md,
-        paddingVertical: darkTheme.spacing.xs,
-        borderRadius: darkTheme.borderRadius.round,
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 20,
     },
     statusServing: {
-        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+        backgroundColor: newTheme.colors.greenGlow,
     },
     statusWaiting: {
-        backgroundColor: 'rgba(245, 158, 11, 0.2)',
+        backgroundColor: newTheme.colors.amberGlow,
     },
     statusText: {
-        fontSize: darkTheme.fontSize.xs,
-        fontWeight: darkTheme.fontWeight.bold,
+        fontSize: 11,
+        fontWeight: '700',
     },
     statusTextServing: {
-        color: darkTheme.colors.success,
+        color: newTheme.colors.green,
     },
     statusTextWaiting: {
-        color: darkTheme.colors.warning,
+        color: newTheme.colors.amber,
     },
     queueDetails: {
-        gap: darkTheme.spacing.sm,
+        gap: 8,
     },
     infoRow: {
         flexDirection: 'row',
@@ -895,39 +853,39 @@ const styles = StyleSheet.create({
         paddingVertical: 2,
     },
     infoLabel: {
-        color: darkTheme.colors.textSecondary,
-        fontWeight: darkTheme.fontWeight.medium,
-        fontSize: darkTheme.fontSize.sm,
+        color: newTheme.colors.text2,
+        fontWeight: '500',
+        fontSize: 13,
     },
     infoValue: {
-        color: darkTheme.colors.text,
-        fontWeight: darkTheme.fontWeight.semibold,
-        fontSize: darkTheme.fontSize.sm,
+        color: newTheme.colors.text,
+        fontWeight: '600',
+        fontSize: 13,
     },
     quotaResultBox: {
-        marginTop: darkTheme.spacing.md,
-        backgroundColor: 'rgba(6, 182, 212, 0.1)',
-        borderRadius: darkTheme.borderRadius.md,
-        padding: darkTheme.spacing.md,
+        marginTop: 16,
+        backgroundColor: newTheme.colors.blueGlow,
+        borderRadius: 12,
+        padding: 16,
         borderWidth: 1,
-        borderColor: 'rgba(6, 182, 212, 0.3)',
+        borderColor: newTheme.colors.blue,
     },
     quotaResultTitle: {
-        fontSize: darkTheme.fontSize.sm,
-        fontWeight: darkTheme.fontWeight.bold,
-        color: darkTheme.colors.primary,
-        marginBottom: darkTheme.spacing.xs,
+        fontSize: 13,
+        fontWeight: '700',
+        color: newTheme.colors.blue,
+        marginBottom: 4,
     },
     quotaResultText: {
-        fontSize: darkTheme.fontSize.sm,
-        color: darkTheme.colors.textSecondary,
+        fontSize: 13,
+        color: newTheme.colors.text2,
         marginBottom: 2,
     },
     quotaProgressBarBg: {
         height: 8,
-        backgroundColor: darkTheme.colors.card,
+        backgroundColor: newTheme.colors.bg3,
         borderRadius: 4,
-        marginTop: darkTheme.spacing.sm,
+        marginTop: 8,
         overflow: 'hidden',
     },
     quotaProgressBarFill: {
@@ -935,80 +893,80 @@ const styles = StyleSheet.create({
         borderRadius: 4,
     },
     quotaSection: {
-        marginTop: darkTheme.spacing.md,
-        backgroundColor: 'rgba(6, 182, 212, 0.08)',
-        borderRadius: darkTheme.borderRadius.md,
-        padding: darkTheme.spacing.md,
+        marginTop: 16,
+        backgroundColor: newTheme.colors.blueGlow,
+        borderRadius: 12,
+        padding: 16,
         borderWidth: 1,
-        borderColor: 'rgba(6, 182, 212, 0.2)',
+        borderColor: newTheme.colors.blue,
     },
     quotaHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: darkTheme.spacing.sm,
+        marginBottom: 8,
     },
     quotaSectionTitle: {
-        fontSize: darkTheme.fontSize.sm,
-        fontWeight: darkTheme.fontWeight.bold,
-        color: darkTheme.colors.primary,
+        fontSize: 13,
+        fontWeight: '700',
+        color: newTheme.colors.blue,
     },
     quotaRemainingBadge: {
-        paddingHorizontal: darkTheme.spacing.sm,
+        paddingHorizontal: 10,
         paddingVertical: 2,
-        borderRadius: darkTheme.borderRadius.round,
+        borderRadius: 20,
     },
     quotaBadgeOk: {
-        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+        backgroundColor: newTheme.colors.greenGlow,
     },
     quotaBadgeWarning: {
-        backgroundColor: 'rgba(245, 158, 11, 0.2)',
+        backgroundColor: newTheme.colors.amberGlow,
     },
     quotaBadgeDanger: {
-        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+        backgroundColor: 'rgba(248,113,113,0.2)',
     },
     quotaBadgeText: {
-        fontSize: darkTheme.fontSize.xs,
-        fontWeight: darkTheme.fontWeight.bold,
-        color: darkTheme.colors.text,
+        fontSize: 11,
+        fontWeight: '700',
+        color: newTheme.colors.text,
     },
     quotaDetailText: {
-        fontSize: darkTheme.fontSize.xs,
-        color: darkTheme.colors.textTertiary,
-        marginTop: darkTheme.spacing.xs,
+        fontSize: 11,
+        color: newTheme.colors.text3,
+        marginTop: 4,
     },
     quotaExhaustedBox: {
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        borderRadius: darkTheme.borderRadius.md,
-        padding: darkTheme.spacing.lg,
+        backgroundColor: 'rgba(248,113,113,0.1)',
+        borderRadius: 12,
+        padding: 20,
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(239, 68, 68, 0.3)',
+        borderColor: 'rgba(248,113,113,0.3)',
     },
     quotaExhaustedIcon: {
         fontSize: 36,
-        marginBottom: darkTheme.spacing.sm,
+        marginBottom: 8,
     },
     quotaExhaustedTitle: {
-        fontSize: darkTheme.fontSize.md,
-        fontWeight: darkTheme.fontWeight.bold,
-        color: darkTheme.colors.error,
-        marginBottom: darkTheme.spacing.xs,
+        fontSize: 14,
+        fontWeight: '700',
+        color: newTheme.colors.red,
+        marginBottom: 4,
     },
     quotaExhaustedText: {
-        fontSize: darkTheme.fontSize.sm,
-        color: darkTheme.colors.textSecondary,
+        fontSize: 13,
+        color: newTheme.colors.text2,
         textAlign: 'center',
     },
     completionSection: {
-        marginTop: darkTheme.spacing.md,
-        paddingTop: darkTheme.spacing.md,
+        marginTop: 16,
+        paddingTop: 16,
         borderTopWidth: 1,
-        borderTopColor: darkTheme.colors.border,
-        gap: darkTheme.spacing.md,
+        borderTopColor: newTheme.colors.border,
+        gap: 16,
     },
     fuelInputGroup: {
-        gap: darkTheme.spacing.xs,
+        gap: 4,
     },
     fuelInputHeader: {
         flexDirection: 'row',
@@ -1016,54 +974,53 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     fuelInputLabel: {
-        color: darkTheme.colors.textSecondary,
-        fontWeight: darkTheme.fontWeight.semibold,
-        fontSize: darkTheme.fontSize.sm,
+        color: newTheme.colors.text2,
+        fontWeight: '600',
+        fontSize: 13,
     },
     fuelInputMax: {
-        color: darkTheme.colors.warning,
-        fontWeight: darkTheme.fontWeight.bold,
-        fontSize: darkTheme.fontSize.xs,
+        color: newTheme.colors.amber,
+        fontWeight: '700',
+        fontSize: 11,
     },
     fuelInputRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: darkTheme.spacing.sm,
+        gap: 8,
     },
     fuelInput: {
         flex: 1,
-        backgroundColor: darkTheme.colors.card,
+        backgroundColor: newTheme.colors.bg3,
         borderWidth: 2,
-        borderColor: darkTheme.colors.border,
-        borderRadius: darkTheme.borderRadius.md,
-        padding: darkTheme.spacing.md,
-        fontSize: darkTheme.fontSize.lg,
-        fontWeight: darkTheme.fontWeight.bold,
-        color: darkTheme.colors.text,
+        borderColor: newTheme.colors.border,
+        borderRadius: 12,
+        padding: 14,
+        fontSize: 16,
+        fontWeight: '700',
+        color: newTheme.colors.text,
         textAlign: 'center',
     },
     fuelUnit: {
-        fontSize: darkTheme.fontSize.lg,
-        fontWeight: darkTheme.fontWeight.bold,
-        color: darkTheme.colors.textSecondary,
+        fontSize: 16,
+        fontWeight: '700',
+        color: newTheme.colors.text2,
     },
     fuelOverLimitWarning: {
-        color: darkTheme.colors.error,
-        fontSize: darkTheme.fontSize.xs,
-        fontWeight: darkTheme.fontWeight.semibold,
+        color: newTheme.colors.red,
+        fontSize: 11,
+        fontWeight: '600',
         marginTop: 2,
     },
     completeButton: {
-        borderRadius: darkTheme.borderRadius.md,
-        overflow: 'hidden',
-    },
-    completeButtonGradient: {
-        paddingVertical: darkTheme.spacing.md,
+        height: 54,
+        backgroundColor: newTheme.colors.green,
+        borderRadius: 14,
         alignItems: 'center',
+        justifyContent: 'center',
     },
     completeButtonText: {
-        color: darkTheme.colors.white,
-        fontWeight: darkTheme.fontWeight.bold,
-        fontSize: darkTheme.fontSize.md,
+        color: newTheme.colors.bg,
+        fontWeight: '700',
+        fontSize: 16,
     },
 });

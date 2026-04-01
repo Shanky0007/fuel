@@ -33,6 +33,25 @@ exports.getRegionsByCountry = async (req, res) => {
 };
 
 /**
+ * Get cities for a specific region
+ */
+exports.getCitiesByRegion = async (req, res) => {
+  try {
+    const { regionId } = req.params;
+    
+    if (!regionId) {
+      return res.status(400).json({ error: 'Region ID is required' });
+    }
+
+    const cities = await locationService.getCitiesByRegion(regionId);
+    res.json(cities);
+  } catch (error) {
+    console.error('Error fetching cities:', error);
+    res.status(500).json({ error: 'Failed to fetch cities' });
+  }
+};
+
+/**
  * Get a specific country by ID
  */
 exports.getCountryById = async (req, res) => {

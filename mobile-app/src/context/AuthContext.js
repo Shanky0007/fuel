@@ -9,16 +9,20 @@ export const AuthProvider = ({ children }) => {
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
-        // Check for existing token
+        // Check for existing token and fetch user data
         const bootstrapAsync = async () => {
-            let userToken;
             try {
-                userToken = await AsyncStorage.getItem('token');
-                // Ideally verify token with backend 'me' endpoint here
+                const userToken = await AsyncStorage.getItem('token');
+                if (userToken) {
+                    // Fetch user data from backend
+                    const userData = await authService.getMe();
+                    setUser(userData);
+                }
             } catch (e) {
-                // Restoring token failed
+                console.error('Failed to restore session:', e);
+                // Clear invalid token
+                await AsyncStorage.removeItem('token');
             }
-            // setUser(userToken); // Simplified logic
         };
 
         bootstrapAsync();
@@ -29,7 +33,10 @@ export const AuthProvider = ({ children }) => {
         try {
             const data = await authService.login(email, password);
             await AsyncStorage.setItem('token', data.token);
-            setUser(data.user);
+            
+            // Fetch complete user profile
+            const fullUser = await authService.getMe();
+            setUser(fullUser);
             setIsLoading(false);
             return true;
         } catch (e) {
@@ -38,12 +45,15 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const register = async (name, email, password, phone, country, region, vehicleType, fuelType, registrationNumber) => {
+    const register = async (name, email, password, phone, country, region, city, vehicleType, fuelType, registrationNumber) => {
         setIsLoading(true);
         try {
-            const data = await authService.register(name, email, password, phone, country, region, vehicleType, fuelType, registrationNumber);
+            const data = await authService.register(name, email, password, phone, country, region, city, vehicleType, fuelType, registrationNumber);
             await AsyncStorage.setItem('token', data.token);
-            setUser(data.user);
+            
+            // Fetch complete user profile
+            const fullUser = await authService.getMe();
+            setUser(fullUser);
             setIsLoading(false);
             return true;
         } catch (e) {
@@ -58,7 +68,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+        <AuthContext.Provider value={{ user, setUser, isLoading, login, register, logout }}>
             {children}
         </AuthContext.Provider>
     );

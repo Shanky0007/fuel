@@ -13,9 +13,8 @@ import {
     ActivityIndicator,
     Alert,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { OperatorAuthContext } from '../../context/OperatorAuthContext';
-import { darkTheme } from '../../theme/darkTheme';
+import { newTheme } from '../../theme/newTheme';
 
 export default function OperatorLoginScreen({ onBack }) {
     const { login, isLoading } = useContext(OperatorAuthContext);
@@ -31,8 +30,12 @@ export default function OperatorLoginScreen({ onBack }) {
 
         try {
             setError('');
-            await login(email.trim(), password);
+            console.log('Starting login process...');
+            const success = await login(email.trim(), password);
+            console.log('Login returned:', success);
+            // Don't navigate - let the auth context handle it
         } catch (e) {
+            console.error('Login failed:', e);
             const errorMessage = e.response?.data?.error || e.message || 'Login failed. Please check your credentials.';
             setError(errorMessage);
         }
@@ -40,18 +43,12 @@ export default function OperatorLoginScreen({ onBack }) {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor={darkTheme.colors.background} />
-
-            {/* Background glow effects */}
-            <View style={styles.backgroundOverlay}>
-                <View style={styles.gradientCircle1} />
-                <View style={styles.gradientCircle2} />
-            </View>
+            <StatusBar barStyle="light-content" backgroundColor={newTheme.colors.bg} />
 
             {/* Back button */}
             <SafeAreaView style={styles.backButtonContainer}>
                 <TouchableOpacity style={styles.backButton} onPress={onBack}>
-                    <Text style={styles.backButtonText}>← Back to Roles</Text>
+                    <Text style={styles.backButtonText}>← Back</Text>
                 </TouchableOpacity>
             </SafeAreaView>
 
@@ -65,7 +62,9 @@ export default function OperatorLoginScreen({ onBack }) {
                 >
                     <View style={styles.content}>
                         <View style={styles.header}>
-                            <Text style={styles.logoIcon}>👷</Text>
+                            <View style={styles.logoIcon}>
+                                <Text style={{ fontSize: 32 }}>👷</Text>
+                            </View>
                             <Text style={styles.title}>Operator Portal</Text>
                             <Text style={styles.subtitle}>Sign in to manage queue operations</Text>
                         </View>
@@ -79,11 +78,11 @@ export default function OperatorLoginScreen({ onBack }) {
                                 ) : null}
 
                                 <View style={styles.inputContainer}>
-                                    <Text style={styles.label}>Email Address</Text>
+                                    <Text style={styles.label}>EMAIL</Text>
                                     <TextInput
                                         style={styles.input}
                                         placeholder="operator@example.com"
-                                        placeholderTextColor={darkTheme.colors.textTertiary}
+                                        placeholderTextColor={newTheme.colors.text3}
                                         value={email}
                                         onChangeText={setEmail}
                                         keyboardType="email-address"
@@ -93,11 +92,11 @@ export default function OperatorLoginScreen({ onBack }) {
                                 </View>
 
                                 <View style={styles.inputContainer}>
-                                    <Text style={styles.label}>Password</Text>
+                                    <Text style={styles.label}>PASSWORD</Text>
                                     <TextInput
                                         style={styles.input}
                                         placeholder="••••••••"
-                                        placeholderTextColor={darkTheme.colors.textTertiary}
+                                        placeholderTextColor={newTheme.colors.text3}
                                         value={password}
                                         onChangeText={setPassword}
                                         secureTextEntry
@@ -105,23 +104,16 @@ export default function OperatorLoginScreen({ onBack }) {
                                 </View>
 
                                 <TouchableOpacity
-                                    style={styles.button}
+                                    style={[styles.button, isLoading && styles.buttonDisabled]}
                                     onPress={handleLogin}
                                     disabled={isLoading}
                                     activeOpacity={0.8}
                                 >
-                                    <LinearGradient
-                                        colors={darkTheme.colors.gradientSuccess}
-                                        style={styles.buttonGradient}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 0 }}
-                                    >
-                                        {isLoading ? (
-                                            <ActivityIndicator color={darkTheme.colors.white} />
-                                        ) : (
-                                            <Text style={styles.buttonText}>Sign In</Text>
-                                        )}
-                                    </LinearGradient>
+                                    {isLoading ? (
+                                        <ActivityIndicator color={newTheme.colors.bg} />
+                                    ) : (
+                                        <Text style={styles.buttonText}>Sign In</Text>
+                                    )}
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -135,35 +127,7 @@ export default function OperatorLoginScreen({ onBack }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: darkTheme.colors.background,
-    },
-    backgroundOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        overflow: 'hidden',
-    },
-    gradientCircle1: {
-        position: 'absolute',
-        top: -100,
-        left: -100,
-        width: 400,
-        height: 400,
-        borderRadius: 200,
-        backgroundColor: darkTheme.colors.successGlow,
-        opacity: 0.5,
-    },
-    gradientCircle2: {
-        position: 'absolute',
-        bottom: -150,
-        right: -100,
-        width: 500,
-        height: 500,
-        borderRadius: 250,
-        backgroundColor: darkTheme.colors.primaryGlow,
-        opacity: 0.5,
+        backgroundColor: newTheme.colors.bg,
     },
     backButtonContainer: {
         position: 'absolute',
@@ -171,16 +135,16 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         zIndex: 10,
-        paddingHorizontal: darkTheme.spacing.lg,
-        paddingTop: darkTheme.spacing.sm,
+        paddingHorizontal: 20,
+        paddingTop: 8,
     },
     backButton: {
-        paddingVertical: darkTheme.spacing.sm,
+        paddingVertical: 8,
     },
     backButtonText: {
-        color: darkTheme.colors.success,
-        fontSize: darkTheme.fontSize.md,
-        fontWeight: darkTheme.fontWeight.semibold,
+        color: newTheme.colors.green,
+        fontSize: 14,
+        fontWeight: '600',
     },
     keyboardView: {
         flex: 1,
@@ -190,83 +154,88 @@ const styles = StyleSheet.create({
     },
     content: {
         flex: 1,
-        padding: darkTheme.spacing.lg,
+        padding: 20,
         justifyContent: 'center',
     },
     header: {
         alignItems: 'center',
-        marginBottom: darkTheme.spacing.xl,
+        marginBottom: 32,
     },
     logoIcon: {
-        fontSize: 64,
-        marginBottom: darkTheme.spacing.md,
+        width: 64,
+        height: 64,
+        backgroundColor: newTheme.colors.green,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 16,
     },
     title: {
-        fontSize: darkTheme.fontSize.xxxl,
-        fontWeight: darkTheme.fontWeight.extrabold,
-        color: darkTheme.colors.text,
-        marginBottom: darkTheme.spacing.sm,
+        fontSize: 26,
+        fontWeight: '700',
+        color: newTheme.colors.text,
+        marginBottom: 4,
         textAlign: 'center',
         letterSpacing: -0.5,
     },
     subtitle: {
-        fontSize: darkTheme.fontSize.md,
-        color: darkTheme.colors.textSecondary,
+        fontSize: 14,
+        color: newTheme.colors.text2,
         textAlign: 'center',
     },
     formCard: {
-        backgroundColor: darkTheme.colors.surface,
-        borderRadius: darkTheme.borderRadius.xxl,
-        padding: darkTheme.spacing.xl,
+        backgroundColor: newTheme.colors.bg2,
+        borderRadius: 24,
+        padding: 24,
         borderWidth: 1,
-        borderColor: darkTheme.colors.border,
-        ...darkTheme.shadows.large,
+        borderColor: newTheme.colors.border,
     },
     form: {
-        gap: darkTheme.spacing.lg,
+        gap: 16,
     },
     errorContainer: {
-        backgroundColor: 'rgba(239, 68, 68, 0.15)',
-        borderRadius: darkTheme.borderRadius.md,
-        padding: darkTheme.spacing.md,
+        backgroundColor: 'rgba(248,113,113,0.15)',
+        borderRadius: 12,
+        padding: 14,
         borderWidth: 1,
-        borderColor: darkTheme.colors.error,
+        borderColor: newTheme.colors.red,
     },
     errorText: {
-        color: darkTheme.colors.errorLight,
+        color: newTheme.colors.red,
         textAlign: 'center',
-        fontSize: darkTheme.fontSize.sm,
+        fontSize: 13,
     },
     inputContainer: {
-        gap: darkTheme.spacing.sm,
+        gap: 8,
     },
     label: {
-        fontSize: darkTheme.fontSize.sm,
-        fontWeight: darkTheme.fontWeight.semibold,
-        color: darkTheme.colors.text,
+        fontSize: 11,
+        fontWeight: '600',
+        color: newTheme.colors.text3,
+        letterSpacing: 1,
     },
     input: {
-        backgroundColor: darkTheme.colors.card,
-        padding: darkTheme.spacing.md,
-        borderRadius: darkTheme.borderRadius.md,
+        backgroundColor: newTheme.colors.bg3,
+        padding: 14,
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: darkTheme.colors.border,
-        fontSize: darkTheme.fontSize.md,
-        color: darkTheme.colors.text,
+        borderColor: newTheme.colors.border,
+        fontSize: 15,
+        color: newTheme.colors.text,
+        height: 54,
     },
     button: {
-        borderRadius: darkTheme.borderRadius.md,
-        overflow: 'hidden',
-        marginTop: darkTheme.spacing.md,
-    },
-    buttonGradient: {
-        padding: darkTheme.spacing.md,
+        height: 54,
+        backgroundColor: newTheme.colors.green,
+        borderRadius: 14,
         alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 8,
     },
     buttonText: {
-        color: darkTheme.colors.white,
-        fontSize: darkTheme.fontSize.md,
-        fontWeight: darkTheme.fontWeight.bold,
-        letterSpacing: 0.5,
+        color: newTheme.colors.bg,
+        fontSize: 16,
+        fontWeight: '700',
+        letterSpacing: -0.2,
     },
 });

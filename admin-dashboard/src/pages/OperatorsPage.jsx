@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { operatorService, lookupService } from '../services/api';
+import { operatorService, lookupService, stationService } from '../services/api';
 import './OperatorsPage.css';
 
 export default function OperatorsPage() {
     const [operators, setOperators] = useState([]);
     const [locations, setLocations] = useState([]);
+    const [cities, setCities] = useState([]);
+    const [stations, setStations] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingCities, setLoadingCities] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
@@ -14,7 +17,9 @@ export default function OperatorsPage() {
         phone: '',
         country: '',
         region: '',
+        city: '',
         assignedRegion: '',
+        assignedStationId: '',
     });
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -26,12 +31,14 @@ export default function OperatorsPage() {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [operatorsData, locationsData] = await Promise.all([
+            const [operatorsData, locationsData, stationsData] = await Promise.all([
                 operatorService.getAll(),
                 lookupService.getLocations(),
+                stationService.getAll(),
             ]);
             setOperators(operatorsData);
             setLocations(locationsData);
+            setStations(stationsData);
         } catch (error) {
             console.error('Failed to load data:', error);
             setError('Failed to load operators');
@@ -59,13 +66,40 @@ export default function OperatorsPage() {
         return country?.regions || [];
     };
 
+    const getCitiesForRegion = async (regionName) => {
+        const country = locations.find(c => c.name === formData.country);
+        if (!country) return [];
+        
+        const region = country.regions?.find(r => r.name === regionName);
+        if (!region) return [];
+
+        setLoadingCities(true);
+        try {
+            const response = await fetch(`http://localhost:5000/api/locations/regions/${region.id}/cities`);
+            const data = await response.json();
+            setCities(data);
+            return data;
+        } catch (error) {
+            console.error('Failed to load cities:', error);
+            return [];
+        } finally {
+            setLoadingCities(false);
+        }
+    };
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({
             ...prev,
             [name]: value,
-            ...(name === 'country' && { region: '' }),
+            ...(name === 'country' && { region: '', city: '' }),
+            ...(name === 'region' && { city: '' }),
         }));
+
+        // Load cities when region changes
+        if (name === 'region' && value) {
+            getCitiesForRegion(value);
+        }
     };
 
     const resetForm = () => {
@@ -76,8 +110,11 @@ export default function OperatorsPage() {
             phone: '',
             country: '',
             region: '',
+            city: '',
             assignedRegion: '',
+            assignedStationId: '',
         });
+        setCities([]);
         setShowForm(false);
         setError('');
     };
@@ -194,7 +231,7 @@ export default function OperatorsPage() {
                                     name="phone"
                                     value={formData.phone}
                                     onChange={handleInputChange}
-                                    placeholder="+1 234 567 8900"
+                                    placeholder="+27 12 345 6789"
                                 />
                             </div>
 
@@ -231,22 +268,40 @@ export default function OperatorsPage() {
                                 </select>
                             </div>
 
-                            <div className="form-group full-width">
-                                <label>Assigned Region (Work Area)</label>
+                            <div className="form-group">
+                                <label>City</label>
                                 <select
-                                    name="assignedRegion"
-                                    value={formData.assignedRegion}
+                                    name="city"
+                                    value={formData.city}
                                     onChange={handleInputChange}
+                                    disabled={!formData.region || loadingCities}
                                 >
-                                    <option value="">Select Assigned Region</option>
-                                    {getAllRegions().map(region => (
-                                        <option key={region.id} value={region.name}>
-                                            {region.displayName}
+                                    <option value="">{loadingCities ? 'Loading...' : 'Select City'}</option>
+                                    {cities.map(city => (
+                                        <option key={city.id} value={city.name}>
+                                            {city.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="form-group full-width">
+                                <label>Assigned Station (Required) *</label>
+                                <select
+                                    name="assignedStationId"
+                                    value={formData.assignedStationId}
+                                    onChange={handleInputChange}
+                                    required
+                                >
+                                    <option value="">Select Station</option>
+                                    {stations.map(station => (
+                                        <option key={station.id} value={station.id}>
+                                            {station.name} - {station.city}, {station.region}
                                         </option>
                                     ))}
                                 </select>
                                 <span className="form-hint">
-                                    This is the region where the operator will manage stations.
+                                    Operator will ONLY be able to manage queues for this specific station.
                                 </span>
                             </div>
                         </div>
@@ -284,7 +339,12 @@ export default function OperatorsPage() {
                                     <p className="operator-phone">📞 {operator.phone}</p>
                                 )}
                                 <div className="operator-location">
-                                    {operator.region && operator.country && (
+                                    {operator.city && operator.region && operator.country && (
+                                        <span className="location-tag">
+                                            📍 {operator.city}, {operator.region}, {operator.country}
+                                        </span>
+                                    )}
+                                    {!operator.city && operator.region && operator.country && (
                                         <span className="location-tag">
                                             📍 {operator.region}, {operator.country}
                                         </span>
@@ -305,6 +365,14 @@ export default function OperatorsPage() {
                                         ))}
                                     </select>
                                 </div>
+                                {operator.assignedStation && (
+                                    <div className="assigned-station">
+                                        <label>Assigned Station:</label>
+                                        <span className="station-badge">
+                                            ⛽ {operator.assignedStation.name} ({operator.assignedStation.city})
+                                        </span>
+                                    </div>
+                                )}
                             </div>
                             <div className="operator-actions">
                                 <button

@@ -65,7 +65,18 @@ exports.getOperators = async (req, res) => {
         phone: true,
         country: true,
         region: true,
+        city: true,
         assignedRegion: true,
+        assignedStationId: true,
+        assignedStation: {
+          select: {
+            id: true,
+            name: true,
+            location: true,
+            city: true,
+            region: true,
+          }
+        },
         createdAt: true,
       },
       orderBy: { name: 'asc' },
@@ -167,7 +178,7 @@ exports.getAnalytics = async (req, res) => {
  */
 exports.createStation = async (req, res) => {
   try {
-    const { name, location, latitude, longitude, country, region, totalPumps, fuelTypes } = req.body;
+    const { name, location, latitude, longitude, country, region, city, totalPumps, fuelTypes } = req.body;
 
     if (!name || !location || !country || !region) {
       return res.status(400).json({ error: 'Name, location, country, and region are required' });
@@ -182,6 +193,7 @@ exports.createStation = async (req, res) => {
         longitude: longitude || 0,
         country,
         region,
+        city: city || null,
         totalPumps: totalPumps || 4,
         status: 'OPEN',
         inventory: fuelTypes && fuelTypes.length > 0 ? {
@@ -216,7 +228,7 @@ exports.createStation = async (req, res) => {
 exports.updateStation = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, location, latitude, longitude, country, region, totalPumps, status } = req.body;
+    const { name, location, latitude, longitude, country, region, city, totalPumps, status } = req.body;
 
     const station = await prisma.station.update({
       where: { id },
@@ -227,6 +239,7 @@ exports.updateStation = async (req, res) => {
         ...(longitude !== undefined && { longitude }),
         ...(country && { country }),
         ...(region && { region }),
+        ...(city && { city }),
         ...(totalPumps && { totalPumps }),
         ...(status && { status }),
       },
@@ -296,10 +309,14 @@ const bcrypt = require('bcryptjs');
 
 exports.createOperator = async (req, res) => {
   try {
-    const { name, email, password, phone, country, region, assignedRegion } = req.body;
+    const { name, email, password, phone, country, region, city, assignedRegion, assignedStationId } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Name, email, and password are required' });
+    }
+
+    if (!assignedStationId) {
+      return res.status(400).json({ error: 'Operator must be assigned to a specific station' });
     }
 
     // Check if email already exists
@@ -322,7 +339,9 @@ exports.createOperator = async (req, res) => {
         role: 'OPERATOR',
         country: country || null,
         region: region || null,
+        city: city || null,
         assignedRegion: assignedRegion || null,
+        assignedStationId: assignedStationId,
       },
       select: {
         id: true,
@@ -332,7 +351,9 @@ exports.createOperator = async (req, res) => {
         role: true,
         country: true,
         region: true,
+        city: true,
         assignedRegion: true,
+        assignedStationId: true,
         createdAt: true,
       },
     });

@@ -21,15 +21,35 @@ class StationService {
         },
       });
 
-      if (!user || !user.country || !user.region) {
-        throw new Error('User location not found');
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // If user doesn't have location set, return all stations
+      if (!user.country || !user.region) {
+        console.log('User location not set, returning all stations');
+        const allStations = await prisma.station.findMany({
+          include: {
+            inventory: {
+              include: {
+                fuelType: true,
+              },
+            },
+          },
+        });
+        return allStations.map(station => ({ ...station, distance: null }));
       }
 
       // Get user's region coordinates
-      const userCoords = await locationService.getRegionCoordinatesByName(
-        user.country,
-        user.region
-      );
+      let userCoords = null;
+      try {
+        userCoords = await locationService.getRegionCoordinatesByName(
+          user.country,
+          user.region
+        );
+      } catch (error) {
+        console.log('Could not get user coordinates:', error.message);
+      }
 
       // Get stations in the same country and region
       const stations = await prisma.station.findMany({
@@ -46,6 +66,21 @@ class StationService {
         },
       });
 
+      // If no stations in user's region, return all stations
+      if (stations.length === 0) {
+        console.log('No stations in user region, returning all stations');
+        const allStations = await prisma.station.findMany({
+          include: {
+            inventory: {
+              include: {
+                fuelType: true,
+              },
+            },
+          },
+        });
+        return allStations.map(station => ({ ...station, distance: null }));
+      }
+
       // Calculate distances and add to station objects
       const stationsWithDistance = stations.map((station) => {
         let distance = null;
@@ -53,6 +88,7 @@ class StationService {
         if (
           station.latitude &&
           station.longitude &&
+          userCoords &&
           userCoords.latitude &&
           userCoords.longitude
         ) {
@@ -79,7 +115,18 @@ class StationService {
 
       return stationsWithDistance;
     } catch (error) {
-      throw new Error(`Failed to fetch stations: ${error.message}`);
+      console.error('Error in getStationsByUserLocation:', error);
+      // Fallback: return all stations if there's any error
+      const allStations = await prisma.station.findMany({
+        include: {
+          inventory: {
+            include: {
+              fuelType: true,
+            },
+          },
+        },
+      });
+      return allStations.map(station => ({ ...station, distance: null }));
     }
   }
 

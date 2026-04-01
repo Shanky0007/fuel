@@ -4,36 +4,37 @@ const prisma = new PrismaClient();
 
 class OperatorService {
   /**
-   * Get queues for operator's assigned region
+   * Get queues for operator's assigned station ONLY
    * @param {string} operatorId - The operator's user ID
-   * @returns {Promise<Array>} List of queues in operator's region
+   * @returns {Promise<Array>} List of queues for operator's assigned station
    */
   async getRegionalQueues(operatorId) {
     try {
-      // Get operator with assigned region
+      // Get operator with assigned station
       const operator = await prisma.user.findUnique({
         where: { id: operatorId },
         select: {
-          assignedRegion: true,
-          country: true,
+          assignedStationId: true,
+          assignedStation: true,
         },
       });
 
-      if (!operator || !operator.assignedRegion) {
-        throw new Error('Operator region not assigned');
+      if (!operator || !operator.assignedStationId) {
+        // Return empty array instead of throwing error - allows login to succeed
+        return [];
       }
 
-      // Get queues from stations in operator's region
-      const queues = await prisma.queue.findMany({
-        where: {
-          station: {
-            country: operator.country,
-            region: operator.assignedRegion,
-          },
-          status: {
-            in: ['WAITING', 'SERVING'],
-          },
+      // Build where clause - ONLY for assigned station
+      let whereClause = {
+        stationId: operator.assignedStationId,
+        status: {
+          in: ['WAITING', 'SERVING'],
         },
+      };
+
+      // Get queues from operator's assigned station ONLY
+      const queues = await prisma.queue.findMany({
+        where: whereClause,
         include: {
           user: {
             select: {
@@ -55,6 +56,7 @@ class OperatorService {
               location: true,
               country: true,
               region: true,
+              city: true,
             },
           },
           ticket: true,
@@ -112,61 +114,56 @@ class OperatorService {
   }
 
   /**
-   * Get stations in operator's assigned region
+   * Get operator's assigned station ONLY
    * @param {string} operatorId - The operator's user ID
-   * @returns {Promise<Array>} List of stations in operator's region
+   * @returns {Promise<Object>} The operator's assigned station
    */
   async getRegionalStations(operatorId) {
     try {
       const operator = await prisma.user.findUnique({
         where: { id: operatorId },
         select: {
-          assignedRegion: true,
-          country: true,
-        },
-      });
-
-      if (!operator || !operator.assignedRegion) {
-        throw new Error('Operator region not assigned');
-      }
-
-      const stations = await prisma.station.findMany({
-        where: {
-          country: operator.country,
-          region: operator.assignedRegion,
-        },
-        include: {
-          inventory: {
+          assignedStationId: true,
+          assignedStation: {
             include: {
-              fuelType: true,
+              inventory: {
+                include: {
+                  fuelType: true,
+                },
+              },
             },
           },
         },
       });
 
-      return stations;
+      if (!operator || !operator.assignedStationId) {
+        // Return empty array instead of throwing error - allows login to succeed
+        return [];
+      }
+
+      // Return only the assigned station as an array for compatibility
+      return [operator.assignedStation];
     } catch (error) {
-      throw new Error(`Failed to fetch regional stations: ${error.message}`);
+      throw new Error(`Failed to fetch assigned station: ${error.message}`);
     }
   }
 
   /**
-   * Validate if a ticket belongs to operator's region
+   * Validate if a ticket belongs to operator's assigned station
    * @param {string} operatorId - The operator's user ID
    * @param {string} ticketId - The ticket ID
-   * @returns {Promise<boolean>} True if ticket is in operator's region
+   * @returns {Promise<boolean>} True if ticket is for operator's assigned station
    */
   async validateTicketRegion(operatorId, ticketId) {
     try {
       const operator = await prisma.user.findUnique({
         where: { id: operatorId },
         select: {
-          assignedRegion: true,
-          country: true,
+          assignedStationId: true,
         },
       });
 
-      if (!operator || !operator.assignedRegion) {
+      if (!operator || !operator.assignedStationId) {
         return false;
       }
 
@@ -174,13 +171,8 @@ class OperatorService {
         where: { id: ticketId },
         include: {
           queue: {
-            include: {
-              station: {
-                select: {
-                  country: true,
-                  region: true,
-                },
-              },
+            select: {
+              stationId: true,
             },
           },
         },
@@ -190,12 +182,10 @@ class OperatorService {
         return false;
       }
 
-      return (
-        ticket.queue.station.country === operator.country &&
-        ticket.queue.station.region === operator.assignedRegion
-      );
+      // Operator can only validate tickets for their assigned station
+      return ticket.queue.stationId === operator.assignedStationId;
     } catch (error) {
-      throw new Error(`Failed to validate ticket region: ${error.message}`);
+      throw new Error(`Failed to validate ticket: ${error.message}`);
     }
   }
 }

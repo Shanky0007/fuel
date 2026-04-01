@@ -13,31 +13,37 @@ const addVehicle = async (req, res) => {
             return res.status(400).json({ error: 'Vehicle registration number is required' });
         }
 
-        // Normalize registration number to uppercase
-        const normalizedRegNumber = registrationNumber.toUpperCase().trim();
+        // Normalize registration number to uppercase and remove spaces
+        const normalizedRegNumber = registrationNumber.toUpperCase().trim().replace(/\s+/g, '');
+        const normalizedLicensePlate = licensePlate ? licensePlate.toUpperCase().trim().replace(/\s+/g, '') : normalizedRegNumber;
 
-        // Check if license plate already exists
-        const existingPlate = await prisma.vehicle.findUnique({
-            where: { licensePlate },
-        });
+        // Check if license plate already exists (only if different from registration number)
+        if (licensePlate && licensePlate !== registrationNumber) {
+            const existingPlate = await prisma.vehicle.findUnique({
+                where: { licensePlate: normalizedLicensePlate },
+            });
 
-        if (existingPlate) {
-            return res.status(400).json({ error: 'Vehicle with this license plate already exists' });
+            if (existingPlate) {
+                return res.status(400).json({ error: 'Vehicle with this license plate already exists' });
+            }
         }
 
-        // Check if registration number already exists
-        const existingReg = await prisma.vehicle.findUnique({
-            where: { registrationNumber: normalizedRegNumber },
+        // Check if registration number already exists for THIS user
+        const existingReg = await prisma.vehicle.findFirst({
+            where: { 
+                registrationNumber: normalizedRegNumber,
+                userId: userId
+            },
         });
 
         if (existingReg) {
-            return res.status(400).json({ error: 'Vehicle with this registration number already exists' });
+            return res.status(400).json({ error: 'You have already added this vehicle' });
         }
 
         const vehicle = await prisma.vehicle.create({
             data: {
                 userId,
-                licensePlate,
+                licensePlate: normalizedLicensePlate,
                 registrationNumber: normalizedRegNumber,
                 type,
                 fuelTypeId,

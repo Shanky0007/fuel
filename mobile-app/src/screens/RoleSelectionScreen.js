@@ -7,8 +7,7 @@ import {
     SafeAreaView,
     StatusBar,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { darkTheme } from '../theme/darkTheme';
+import { newTheme } from '../theme/newTheme';
 
 const roles = [
     {
@@ -16,31 +15,27 @@ const roles = [
         title: 'User',
         subtitle: 'Join fuel queues & track your position',
         icon: '🚗',
-        gradient: darkTheme.colors.gradientPrimary,
+        color: newTheme.colors.blue,
     },
     {
         id: 'operator',
         title: 'Operator',
         subtitle: 'Scan tickets & manage station queues',
         icon: '👷',
-        gradient: darkTheme.colors.gradientSuccess,
+        color: newTheme.colors.green,
     },
 ];
 
 export default function RoleSelectionScreen({ onSelectRole }) {
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor={darkTheme.colors.background} />
-
-            {/* Background glow effects */}
-            <View style={styles.backgroundOverlay}>
-                <View style={styles.gradientCircle1} />
-                <View style={styles.gradientCircle2} />
-            </View>
+            <StatusBar barStyle="light-content" backgroundColor={newTheme.colors.bg} />
 
             {/* Header */}
             <View style={styles.header}>
-                <Text style={styles.logo}>⛽</Text>
+                <View style={styles.logoIcon}>
+                    <Text style={{ fontSize: 40 }}>⛽</Text>
+                </View>
                 <Text style={styles.title}>Fuel Queue System</Text>
                 <Text style={styles.subtitle}>Select your role to continue</Text>
             </View>
@@ -50,27 +45,20 @@ export default function RoleSelectionScreen({ onSelectRole }) {
                 {roles.map((role) => (
                     <TouchableOpacity
                         key={role.id}
-                        style={styles.cardWrapper}
+                        style={styles.card}
                         onPress={() => onSelectRole(role.id)}
                         activeOpacity={0.8}
                     >
-                        <LinearGradient
-                            colors={role.gradient}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.card}
-                        >
-                            <View style={styles.iconContainer}>
-                                <Text style={styles.icon}>{role.icon}</Text>
-                            </View>
-                            <View style={styles.cardContent}>
-                                <Text style={styles.cardTitle}>{role.title}</Text>
-                                <Text style={styles.cardSubtitle}>{role.subtitle}</Text>
-                            </View>
-                            <View style={styles.arrowContainer}>
-                                <Text style={styles.arrow}>→</Text>
-                            </View>
-                        </LinearGradient>
+                        <View style={[styles.iconContainer, { backgroundColor: role.color + '20' }]}>
+                            <Text style={styles.icon}>{role.icon}</Text>
+                        </View>
+                        <View style={styles.cardContent}>
+                            <Text style={styles.cardTitle}>{role.title}</Text>
+                            <Text style={styles.cardSubtitle}>{role.subtitle}</Text>
+                        </View>
+                        <View style={styles.arrowContainer}>
+                            <Text style={styles.arrow}>→</Text>
+                        </View>
                     </TouchableOpacity>
                 ))}
             </View>
@@ -88,81 +76,57 @@ export default function RoleSelectionScreen({ onSelectRole }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: darkTheme.colors.background,
-    },
-    backgroundOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        overflow: 'hidden',
-    },
-    gradientCircle1: {
-        position: 'absolute',
-        top: -100,
-        left: -100,
-        width: 400,
-        height: 400,
-        borderRadius: 200,
-        backgroundColor: darkTheme.colors.primaryGlow,
-        opacity: 0.5,
-    },
-    gradientCircle2: {
-        position: 'absolute',
-        bottom: -150,
-        right: -100,
-        width: 500,
-        height: 500,
-        borderRadius: 250,
-        backgroundColor: darkTheme.colors.accentGlow,
-        opacity: 0.5,
+        backgroundColor: newTheme.colors.bg,
     },
     header: {
         alignItems: 'center',
-        paddingVertical: darkTheme.spacing.xxl,
-        paddingHorizontal: darkTheme.spacing.lg,
+        paddingVertical: 48,
+        paddingHorizontal: 20,
     },
-    logo: {
-        fontSize: 64,
-        marginBottom: darkTheme.spacing.md,
+    logoIcon: {
+        width: 80,
+        height: 80,
+        backgroundColor: newTheme.colors.amber,
+        borderRadius: 22,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 16,
     },
     title: {
-        fontSize: darkTheme.fontSize.xxxl,
-        fontWeight: darkTheme.fontWeight.extrabold,
-        color: darkTheme.colors.text,
+        fontSize: 28,
+        fontWeight: '700',
+        color: newTheme.colors.text,
         textAlign: 'center',
-        marginBottom: darkTheme.spacing.sm,
+        marginBottom: 8,
         letterSpacing: -0.5,
     },
     subtitle: {
-        fontSize: darkTheme.fontSize.md,
-        color: darkTheme.colors.textSecondary,
+        fontSize: 14,
+        color: newTheme.colors.text2,
         textAlign: 'center',
     },
     cardsContainer: {
         flex: 1,
-        paddingHorizontal: darkTheme.spacing.lg,
+        paddingHorizontal: 20,
         justifyContent: 'center',
-        gap: darkTheme.spacing.lg,
-    },
-    cardWrapper: {
-        ...darkTheme.shadows.large,
+        gap: 16,
     },
     card: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: darkTheme.spacing.lg,
-        borderRadius: darkTheme.borderRadius.xl,
+        padding: 20,
+        borderRadius: 20,
+        backgroundColor: newTheme.colors.bg2,
+        borderWidth: 1,
+        borderColor: newTheme.colors.border,
     },
     iconContainer: {
         width: 56,
         height: 56,
-        borderRadius: darkTheme.borderRadius.lg,
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        borderRadius: 14,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: darkTheme.spacing.md,
+        marginRight: 16,
     },
     icon: {
         fontSize: 28,
@@ -171,34 +135,34 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     cardTitle: {
-        fontSize: darkTheme.fontSize.xl,
-        fontWeight: darkTheme.fontWeight.bold,
-        color: darkTheme.colors.white,
+        fontSize: 18,
+        fontWeight: '700',
+        color: newTheme.colors.text,
         marginBottom: 4,
     },
     cardSubtitle: {
-        fontSize: darkTheme.fontSize.sm,
-        color: 'rgba(255, 255, 255, 0.85)',
+        fontSize: 13,
+        color: newTheme.colors.text2,
     },
     arrowContainer: {
         width: 40,
         height: 40,
-        borderRadius: darkTheme.borderRadius.round,
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        borderRadius: 20,
+        backgroundColor: newTheme.colors.bg3,
         justifyContent: 'center',
         alignItems: 'center',
     },
     arrow: {
         fontSize: 20,
-        color: darkTheme.colors.white,
-        fontWeight: 'bold',
+        color: newTheme.colors.text,
+        fontWeight: '700',
     },
     footer: {
         alignItems: 'center',
-        paddingVertical: darkTheme.spacing.xl,
+        paddingVertical: 32,
     },
     footerText: {
-        fontSize: darkTheme.fontSize.sm,
-        color: darkTheme.colors.textTertiary,
+        fontSize: 12,
+        color: newTheme.colors.text3,
     },
 });

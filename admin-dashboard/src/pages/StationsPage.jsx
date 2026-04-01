@@ -4,9 +4,13 @@ import './StationsPage.css';
 
 export default function StationsPage() {
     const [stations, setStations] = useState([]);
+    const [filteredStations, setFilteredStations] = useState([]);
+    const [searchQuery, setSearchQuery] = useState('');
     const [fuelTypes, setFuelTypes] = useState([]);
     const [locations, setLocations] = useState([]);
+    const [cities, setCities] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingCities, setLoadingCities] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [editingStation, setEditingStation] = useState(null);
     const [formData, setFormData] = useState({
@@ -16,6 +20,7 @@ export default function StationsPage() {
         longitude: '',
         country: '',
         region: '',
+        city: '',
         totalPumps: 4,
         fuelTypes: [],
     });
@@ -26,6 +31,23 @@ export default function StationsPage() {
         loadData();
     }, []);
 
+    useEffect(() => {
+        // Filter stations based on search query
+        if (searchQuery.trim() === '') {
+            setFilteredStations(stations);
+        } else {
+            const query = searchQuery.toLowerCase();
+            const filtered = stations.filter(station => 
+                station.name.toLowerCase().includes(query) ||
+                station.location?.toLowerCase().includes(query) ||
+                station.city?.toLowerCase().includes(query) ||
+                station.region?.toLowerCase().includes(query) ||
+                station.country?.toLowerCase().includes(query)
+            );
+            setFilteredStations(filtered);
+        }
+    }, [searchQuery, stations]);
+
     const loadData = async () => {
         try {
             setLoading(true);
@@ -35,6 +57,7 @@ export default function StationsPage() {
                 lookupService.getLocations(),
             ]);
             setStations(stationsData);
+            setFilteredStations(stationsData);
             setFuelTypes(fuelTypesData);
             setLocations(locationsData);
         } catch (error) {
@@ -50,13 +73,57 @@ export default function StationsPage() {
         return country?.regions || [];
     };
 
+    const getCitiesForRegion = async (regionName) => {
+        const country = locations.find(c => c.name === formData.country);
+        if (!country) return [];
+        
+        const region = country.regions?.find(r => r.name === regionName);
+        if (!region) return [];
+
+        setLoadingCities(true);
+        try {
+            const response = await fetch(`http://localhost:5000/api/locations/regions/${region.id}/cities`);
+            const data = await response.json();
+            setCities(data);
+            return data;
+        } catch (error) {
+            console.error('Failed to load cities:', error);
+            return [];
+        } finally {
+            setLoadingCities(false);
+        }
+    };
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value,
-            ...(name === 'country' && { region: '' }), // Reset region when country changes
-        }));
+        
+        if (name === 'country') {
+            // Reset region and city when country changes
+            setFormData(prev => ({
+                ...prev,
+                country: value,
+                region: '',
+                city: ''
+            }));
+            setCities([]);
+        } else if (name === 'region') {
+            // Reset city and load cities when region changes
+            setFormData(prev => ({
+                ...prev,
+                region: value,
+                city: ''
+            }));
+            if (value) {
+                getCitiesForRegion(value);
+            } else {
+                setCities([]);
+            }
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                [name]: value
+            }));
+        }
     };
 
     const handleFuelTypeToggle = (fuelTypeId) => {
@@ -76,9 +143,11 @@ export default function StationsPage() {
             longitude: '',
             country: '',
             region: '',
+            city: '',
             totalPumps: 4,
             fuelTypes: [],
         });
+        setCities([]);
         setEditingStation(null);
         setShowForm(false);
         setError('');
@@ -88,6 +157,22 @@ export default function StationsPage() {
         e.preventDefault();
         setError('');
         setSuccess('');
+
+        // Validate required fields
+        if (!formData.name || !formData.location) {
+            setError('Station name and address/location are required');
+            return;
+        }
+
+        if (!formData.country || !formData.region) {
+            setError('Country and region are required');
+            return;
+        }
+
+        if (!formData.city) {
+            setError('City is required');
+            return;
+        }
 
         try {
             const payload = {
@@ -112,7 +197,11 @@ export default function StationsPage() {
         }
     };
 
-    const handleEdit = (station) => {
+    const handleEdit = async (station) => {
+        // First, find the country and region IDs
+        const country = locations.find(c => c.name === station.country);
+        const region = country?.regions?.find(r => r.name === station.region);
+
         setFormData({
             name: station.name,
             location: station.location,
@@ -120,9 +209,25 @@ export default function StationsPage() {
             longitude: station.longitude?.toString() || '',
             country: station.country || '',
             region: station.region || '',
+            city: station.city || '',
             totalPumps: station.totalPumps || 4,
             fuelTypes: station.inventory?.map(inv => inv.fuelTypeId) || [],
         });
+        
+        // Load cities for the selected region
+        if (region) {
+            setLoadingCities(true);
+            try {
+                const response = await fetch(`http://localhost:5000/api/locations/regions/${region.id}/cities`);
+                const data = await response.json();
+                setCities(data);
+            } catch (error) {
+                console.error('Failed to load cities:', error);
+            } finally {
+                setLoadingCities(false);
+            }
+        }
+        
         setEditingStation(station);
         setShowForm(true);
     };
@@ -164,9 +269,18 @@ export default function StationsPage() {
             {/* Header */}
             <div className="page-header">
                 <h2>⛽ Station Management</h2>
-                <button className="btn-primary" onClick={() => setShowForm(!showForm)}>
-                    {showForm ? '✕ Cancel' : '+ Add Station'}
-                </button>
+                <div className="header-actions">
+                    <input
+                        type="text"
+                        className="search-input"
+                        placeholder="🔍 Search stations..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    <button className="btn-primary" onClick={() => setShowForm(!showForm)}>
+                        {showForm ? '✕ Cancel' : '+ Add Station'}
+                    </button>
+                </div>
             </div>
 
             {/* Add/Edit Form */}
@@ -235,13 +349,31 @@ export default function StationsPage() {
                             </div>
 
                             <div className="form-group">
+                                <label>City *</label>
+                                <select
+                                    name="city"
+                                    value={formData.city}
+                                    onChange={handleInputChange}
+                                    required
+                                    disabled={!formData.region || loadingCities}
+                                >
+                                    <option value="">{loadingCities ? 'Loading...' : 'Select City'}</option>
+                                    {cities.map(city => (
+                                        <option key={city.id} value={city.name}>
+                                            {city.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="form-group">
                                 <label>Latitude</label>
                                 <input
                                     type="number"
                                     name="latitude"
                                     value={formData.latitude}
                                     onChange={handleInputChange}
-                                    placeholder="e.g., 19.0760"
+                                    placeholder="e.g., -26.2041"
                                     step="any"
                                 />
                             </div>
@@ -253,7 +385,7 @@ export default function StationsPage() {
                                     name="longitude"
                                     value={formData.longitude}
                                     onChange={handleInputChange}
-                                    placeholder="e.g., 72.8777"
+                                    placeholder="e.g., 28.0473"
                                     step="any"
                                 />
                             </div>
@@ -303,14 +435,14 @@ export default function StationsPage() {
 
             {/* Stations List */}
             <div className="stations-grid">
-                {stations.length === 0 ? (
+                {filteredStations.length === 0 ? (
                     <div className="empty-state">
                         <div className="empty-icon">⛽</div>
-                        <h3>No Stations Yet</h3>
-                        <p>Click "Add Station" to create your first fuel station.</p>
+                        <h3>{searchQuery ? 'No Stations Found' : 'No Stations Yet'}</h3>
+                        <p>{searchQuery ? 'Try a different search term.' : 'Click "Add Station" to create your first fuel station.'}</p>
                     </div>
                 ) : (
-                    stations.map(station => (
+                    filteredStations.map(station => (
                         <div key={station.id} className="station-card">
                             <div className="station-header">
                                 <h3>{station.name}</h3>
@@ -325,7 +457,10 @@ export default function StationsPage() {
                                 </div>
                                 <div className="detail-row">
                                     <span className="detail-icon">🌍</span>
-                                    <span>{station.region}, {station.country}</span>
+                                    <span>
+                                        {station.city && `${station.city}, `}
+                                        {station.region}, {station.country}
+                                    </span>
                                 </div>
                                 <div className="detail-row">
                                     <span className="detail-icon">⛽</span>

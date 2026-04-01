@@ -1,12 +1,14 @@
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { generateToken } = require('../utils/jwt');
+const { sendPasswordResetEmail } = require('../services/emailService');
 
 const prisma = new PrismaClient();
 
 const register = async (req, res) => {
     try {
-        const { name, email, password, phone, role, country, region, vehicleType, fuelType, registrationNumber } = req.body;
+        const { name, email, password, phone, role, country, region, city, vehicleType, fuelType, registrationNumber } = req.body;
 
         // Validate required fields
         if (!name || !email || !password) {
@@ -16,6 +18,10 @@ const register = async (req, res) => {
         // Validate location data
         if (!country || !region) {
             return res.status(400).json({ error: 'Country and region are required' });
+        }
+
+        if (!city) {
+            return res.status(400).json({ error: 'City is required' });
         }
 
         // Validate vehicle data
@@ -49,9 +55,12 @@ const register = async (req, res) => {
             return res.status(400).json({ error: 'Email already exists' });
         }
 
+        // Normalize registration number
+        const normalizedRegNumber = registrationNumber.toUpperCase().trim().replace(/\s+/g, '');
+
         // Check if vehicle with this registration number already exists
-        const existingVehicle = await prisma.vehicle.findUnique({
-            where: { registrationNumber }
+        const existingVehicle = await prisma.vehicle.findFirst({
+            where: { registrationNumber: normalizedRegNumber }
         });
 
         if (existingVehicle) {
@@ -78,12 +87,13 @@ const register = async (req, res) => {
                 role: role || 'CUSTOMER',
                 country,
                 region,
+                city,
                 vehicleType,
                 fuelType,
                 vehicles: {
                     create: {
-                        licensePlate: registrationNumber, // Use registration number as license plate
-                        registrationNumber: registrationNumber, // OFFICIAL ID for quota tracking
+                        licensePlate: normalizedRegNumber, // Use registration number as license plate
+                        registrationNumber: normalizedRegNumber, // OFFICIAL ID for quota tracking
                         type: vehicleType,
                         fuelTypeId: fuelTypeRecord.id
                     }
@@ -103,6 +113,7 @@ const register = async (req, res) => {
                 role: user.role,
                 country: user.country,
                 region: user.region,
+                city: user.city,
                 vehicleType: user.vehicleType,
                 fuelType: user.fuelType
             },
@@ -152,6 +163,7 @@ const getMe = async (req, res) => {
                 phone: true,
                 country: true,
                 region: true,
+                city: true,
                 vehicleType: true,
                 fuelType: true,
                 assignedRegion: true,
@@ -233,6 +245,7 @@ const updateVehicle = async (req, res) => {
                 phone: true,
                 country: true,
                 region: true,
+                city: true,
                 vehicleType: true,
                 fuelType: true,
                 createdAt: true
@@ -248,4 +261,142 @@ const updateVehicle = async (req, res) => {
     }
 };
 
-module.exports = { register, login, getMe, updateLocation, updateVehicle };
+const updateProfile = async (req, res) => {
+    try {
+        const { name, phone, country, region, city } = req.body;
+
+        if (!name) {
+            return res.status(400).json({ error: 'Name is required' });
+        }
+
+        if (!country || !region || !city) {
+            return res.status(400).json({ error: 'Country, region, and city are required' });
+        }
+
+        const user = await prisma.user.update({
+            where: { id: req.user.userId },
+            data: {
+                name,
+                phone: phone || null,
+                country,
+                region,
+                city,
+            },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                phone: true,
+                country: true,
+                region: true,
+                city: true,
+                vehicleType: true,
+                fuelType: true,
+                createdAt: true
+            },
+        });
+
+        res.json({
+            message: 'Profile updated successfully',
+            user,
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+const forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ error: 'Email is required' });
+        }
+
+        const user = await prisma.user.findUnique({ where: { email } });
+        
+        if (!user) {
+            // Don't reveal if user exists or not for security
+            return res.json({ message: 'If an account exists with this email, a password reset link has been sent.' });
+        }
+
+        // Generate reset token
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+        const resetPasswordExpires = new Date(Date.now() + 3600000); // 1 hour from now
+
+        // Save token to database
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                resetPasswordToken,
+                resetPasswordExpires,
+            },
+        });
+
+        // Send email
+        try {
+            await sendPasswordResetEmail(user.email, resetToken);
+        } catch (emailError) {
+            console.error('Failed to send password reset email:', emailError);
+            return res.status(500).json({ error: 'Failed to send password reset email. Please try again later.' });
+        }
+
+        res.json({ message: 'If an account exists with this email, a password reset link has been sent.' });
+    } catch (error) {
+        console.error('Forgot password error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+const resetPassword = async (req, res) => {
+    try {
+        const { token, newPassword } = req.body;
+
+        if (!token || !newPassword) {
+            return res.status(400).json({ error: 'Token and new password are required' });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+        }
+
+        // Hash the token to compare with database
+        const resetPasswordToken = crypto.createHash('sha256').update(token).digest('hex');
+
+        // Find user with valid token
+        const user = await prisma.user.findFirst({
+            where: {
+                resetPasswordToken,
+                resetPasswordExpires: {
+                    gt: new Date(), // Token not expired
+                },
+            },
+        });
+
+        if (!user) {
+            return res.status(400).json({ error: 'Invalid or expired reset token' });
+        }
+
+        // Hash new password
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        // Update password and clear reset token
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                password: hashedPassword,
+                resetPasswordToken: null,
+                resetPasswordExpires: null,
+            },
+        });
+
+        res.json({ message: 'Password has been reset successfully. You can now login with your new password.' });
+    } catch (error) {
+        console.error('Reset password error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+module.exports = { register, login, getMe, updateLocation, updateVehicle, updateProfile, forgotPassword, resetPassword };

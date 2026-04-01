@@ -86,10 +86,18 @@ const joinQueue = async (req, res) => {
                 userId,
                 status: { in: ['WAITING', 'SERVING'] },
             },
+            include: {
+                station: true,
+            },
         });
 
         if (existingQueue) {
-            return res.status(400).json({ error: 'You already have an active queue entry' });
+            return res.status(400).json({ 
+                error: `You already have an active queue at ${existingQueue.station.name}. Please complete or cancel that queue before joining another.`,
+                code: 'ALREADY_IN_QUEUE',
+                existingQueueId: existingQueue.id,
+                existingStationName: existingQueue.station.name,
+            });
         }
 
         // Get user information for QR code
