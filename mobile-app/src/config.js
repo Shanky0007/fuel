@@ -1,23 +1,23 @@
 import { Platform } from "react-native";
 import Constants from "expo-constants";
 
-const PRODUCTION_API_URL =
-  "https://4a6b-2401-4900-892e-5a3-5cf8-ec30-49ec-dcd0.ngrok-free.app/api";
+const PRODUCTION_API_URL = "http://34.14.201.249:5000/api";
 
 const getBaseUrl = () => {
   if (Platform.OS === "web") {
-    // Use localhost for web development
     return "http://localhost:5000/api";
   }
 
+  // In development, use the local machine's IP via Expo
   const debuggerHost =
     Constants.expoConfig?.hostUri || Constants.manifest?.debuggerHost;
 
-  if (debuggerHost) {
+  if (__DEV__ && debuggerHost) {
     const ip = debuggerHost.split(":")[0];
     return `http://${ip}:5000/api`;
   }
 
+  // Production - use GCP VM
   return PRODUCTION_API_URL;
 };
 
