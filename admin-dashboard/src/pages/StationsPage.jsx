@@ -18,7 +18,7 @@ export default function StationsPage() {
         location: '',
         latitude: '',
         longitude: '',
-        country: '',
+        country: 'South Africa',
         region: '',
         city: '',
         totalPumps: 4,
@@ -76,14 +76,13 @@ export default function StationsPage() {
     const getCitiesForRegion = async (regionName) => {
         const country = locations.find(c => c.name === formData.country);
         if (!country) return [];
-        
+
         const region = country.regions?.find(r => r.name === regionName);
         if (!region) return [];
 
         setLoadingCities(true);
         try {
-            const response = await fetch(`http://localhost:5000/api/locations/regions/${region.id}/cities`);
-            const data = await response.json();
+            const data = await lookupService.getCitiesForRegion(region.id);
             setCities(data);
             return data;
         } catch (error) {
@@ -141,7 +140,7 @@ export default function StationsPage() {
             location: '',
             latitude: '',
             longitude: '',
-            country: '',
+            country: 'South Africa',
             region: '',
             city: '',
             totalPumps: 4,
@@ -218,8 +217,7 @@ export default function StationsPage() {
         if (region) {
             setLoadingCities(true);
             try {
-                const response = await fetch(`http://localhost:5000/api/locations/regions/${region.id}/cities`);
-                const data = await response.json();
+                const data = await lookupService.getCitiesForRegion(region.id);
                 setCities(data);
             } catch (error) {
                 console.error('Failed to load cities:', error);
@@ -315,19 +313,12 @@ export default function StationsPage() {
 
                             <div className="form-group">
                                 <label>Country *</label>
-                                <select
-                                    name="country"
-                                    value={formData.country}
-                                    onChange={handleInputChange}
-                                    required
-                                >
-                                    <option value="">Select Country</option>
-                                    {locations.map(country => (
-                                        <option key={country.id} value={country.name}>
-                                            {country.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                <input
+                                    type="text"
+                                    value="South Africa"
+                                    readOnly
+                                    style={{ opacity: 0.5, cursor: 'default' }}
+                                />
                             </div>
 
                             <div className="form-group">
@@ -337,7 +328,6 @@ export default function StationsPage() {
                                     value={formData.region}
                                     onChange={handleInputChange}
                                     required
-                                    disabled={!formData.country}
                                 >
                                     <option value="">Select Region</option>
                                     {getRegionsForCountry(formData.country).map(region => (

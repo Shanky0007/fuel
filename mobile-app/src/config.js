@@ -1,27 +1,6 @@
-import { Platform } from "react-native";
-import Constants from "expo-constants";
+const NGROK_URL = "https://4ad9-2401-4900-88cb-7859-ed7c-75f4-1ce0-58cc.ngrok-free.app/api";
 
-const PRODUCTION_API_URL = "https://fuel-backend-175700686095.asia-south1.run.app/api";
-
-const getBaseUrl = () => {
-  if (Platform.OS === "web") {
-    return "http://localhost:5000/api";
-  }
-
-  // In development, use the local machine's IP via Expo
-  const debuggerHost =
-    Constants.expoConfig?.hostUri || Constants.manifest?.debuggerHost;
-
-  if (__DEV__ && debuggerHost) {
-    const ip = debuggerHost.split(":")[0];
-    return `http://${ip}:5000/api`;
-  }
-
-  // Production - use GCP VM
-  return PRODUCTION_API_URL;
-};
-
-export const API_URL = getBaseUrl();
-export const BASE_URL = getBaseUrl();
+export const API_URL = NGROK_URL;
+export const BASE_URL = NGROK_URL;
 
 console.log("API URL:", API_URL);

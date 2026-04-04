@@ -15,7 +15,7 @@ export default function OperatorsPage() {
         email: '',
         password: '',
         phone: '',
-        country: '',
+        country: 'South Africa',
         region: '',
         city: '',
         assignedRegion: '',
@@ -75,8 +75,7 @@ export default function OperatorsPage() {
 
         setLoadingCities(true);
         try {
-            const response = await fetch(`http://localhost:5000/api/locations/regions/${region.id}/cities`);
-            const data = await response.json();
+            const data = await lookupService.getCitiesForRegion(region.id);
             setCities(data);
             return data;
         } catch (error) {
@@ -108,7 +107,7 @@ export default function OperatorsPage() {
             email: '',
             password: '',
             phone: '',
-            country: '',
+            country: 'South Africa',
             region: '',
             city: '',
             assignedRegion: '',
@@ -237,18 +236,12 @@ export default function OperatorsPage() {
 
                             <div className="form-group">
                                 <label>Country</label>
-                                <select
-                                    name="country"
-                                    value={formData.country}
-                                    onChange={handleInputChange}
-                                >
-                                    <option value="">Select Country</option>
-                                    {locations.map(country => (
-                                        <option key={country.id} value={country.name}>
-                                            {country.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                <input
+                                    type="text"
+                                    value="South Africa"
+                                    readOnly
+                                    style={{ opacity: 0.5, cursor: 'default' }}
+                                />
                             </div>
 
                             <div className="form-group">
@@ -257,7 +250,6 @@ export default function OperatorsPage() {
                                     name="region"
                                     value={formData.region}
                                     onChange={handleInputChange}
-                                    disabled={!formData.country}
                                 >
                                     <option value="">Select Region</option>
                                     {getRegionsForCountry(formData.country).map(region => (

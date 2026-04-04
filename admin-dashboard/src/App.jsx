@@ -5,6 +5,7 @@ import StationsPage from './pages/StationsPage';
 import OperatorsPage from './pages/OperatorsPage';
 import FuelQuotasPage from './pages/FuelQuotasPage';
 import StationsMapPage from './pages/StationsMapPage';
+import SettingsPage from './pages/SettingsPage';
 import './styles/theme.css';
 import './styles/global.css';
 import './App.css';
@@ -40,6 +41,8 @@ function App() {
         return <OperatorsPage />;
       case 'fuel-quotas':
         return <FuelQuotasPage />;
+      case 'settings':
+        return <SettingsPage user={user} onLogout={handleLogout} />;
       case 'dashboard':
       default:
         return <DashboardPage user={user} onLogout={handleLogout} />;
@@ -60,7 +63,8 @@ function App() {
       stations: 'Stations · Gestion',
       'stations-map': 'Carte · Stations',
       operators: 'Opérateurs · Gestion',
-      'fuel-quotas': 'Quotas · Carburant'
+      'fuel-quotas': 'Quotas · Carburant',
+      'settings': 'Settings · Account'
     };
     return titles[activePage] || 'Dashboard';
   };
@@ -125,11 +129,18 @@ function App() {
               <div className="user-role">{user.role.toLowerCase()}</div>
             </div>
             <span
+              style={{ cursor: 'pointer', color: 'var(--muted)', fontSize: '14px', marginRight: '6px' }}
+              onClick={() => setActivePage('settings')}
+              title="Settings"
+            >
+              ⚙
+            </span>
+            <span
               style={{ cursor: 'pointer', color: 'var(--muted)', fontSize: '14px' }}
               onClick={handleLogout}
               title="Logout"
             >
-              ⚙
+              ⏻
             </span>
           </div>
         </div>

@@ -7,6 +7,7 @@ const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "true",
   },
 });
 
@@ -89,6 +90,10 @@ export const lookupService = {
   },
   getLocations: async () => {
     const response = await api.get("/admin/locations");
+    return Array.isArray(response.data) ? response.data : [];
+  },
+  getCitiesForRegion: async (regionId) => {
+    const response = await api.get(`/locations/regions/${regionId}/cities`);
     return Array.isArray(response.data) ? response.data : [];
   },
 };

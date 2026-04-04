@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { stationService, analyticsService } from '../services/api';
 import './DashboardPage.css';
 
@@ -11,6 +11,31 @@ export default function DashboardPage({ user, onLogout }) {
   });
   const [stations, setStations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [mapPan, setMapPan] = useState({ x: 0, y: 0 });
+  const isPanning = useRef(false);
+  const panStart = useRef({ x: 0, y: 0 });
+  const panOrigin = useRef({ x: 0, y: 0 });
+
+  const onMapMouseDown = useCallback((e) => {
+    isPanning.current = true;
+    panStart.current = { x: e.clientX, y: e.clientY };
+    panOrigin.current = mapPan;
+    e.preventDefault();
+  }, [mapPan]);
+
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!isPanning.current) return;
+      setMapPan({
+        x: panOrigin.current.x + (e.clientX - panStart.current.x),
+        y: panOrigin.current.y + (e.clientY - panStart.current.y),
+      });
+    };
+    const onUp = () => { isPanning.current = false; };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -78,33 +103,41 @@ export default function DashboardPage({ user, onLogout }) {
             <div className="card-title">
               <span className="live-dot"></span>Stations Map
             </div>
-            <div className="card-tag">LIVE</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="card-tag">LIVE</div>
+              <span style={{ color: 'var(--muted)', fontSize: 10, userSelect: 'none' }}>drag to pan</span>
+            </div>
           </div>
-          <div className="stations-map">
-            <div className="map-grid"></div>
-            {stations.slice(0, 7).map((station, idx) => {
-              const positions = [
-                { left: '25%', top: '40%' },
-                { left: '55%', top: '55%' },
-                { left: '75%', top: '30%' },
-                { left: '40%', top: '70%' },
-                { left: '15%', top: '65%' },
-                { left: '85%', top: '65%' },
-                { left: '60%', top: '80%' }
-              ];
-              const pos = positions[idx] || { left: '50%', top: '50%' };
-              return (
-                <div
-                  key={station.id}
-                  className="map-pin"
-                  style={{ left: pos.left, top: pos.top }}
-                  title={station.name}
-                >
-                  <div className={`pin-dot ${station.status === 'OPEN' ? 'open-pin' : 'closed-pin'}`}></div>
-                  <div className="pin-label">{station.name}</div>
-                </div>
-              );
-            })}
+          <div className="stations-map" onMouseDown={onMapMouseDown}>
+            <div
+              className="map-canvas"
+              style={{ transform: `translate(${mapPan.x}px, ${mapPan.y}px)` }}
+            >
+              <div className="map-grid"></div>
+              {stations.slice(0, 7).map((station, idx) => {
+                const positions = [
+                  { left: '25%', top: '40%' },
+                  { left: '55%', top: '55%' },
+                  { left: '75%', top: '30%' },
+                  { left: '40%', top: '70%' },
+                  { left: '15%', top: '65%' },
+                  { left: '85%', top: '65%' },
+                  { left: '60%', top: '80%' },
+                ];
+                const pos = positions[idx] || { left: '50%', top: '50%' };
+                return (
+                  <div
+                    key={station.id}
+                    className="map-pin"
+                    style={{ left: pos.left, top: pos.top }}
+                    title={station.name}
+                  >
+                    <div className={`pin-dot ${station.status === 'OPEN' ? 'open-pin' : 'closed-pin'}`}></div>
+                    <div className="pin-label">{station.name}</div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
           <div className="stats-row">
             <div className="stat-cell">
