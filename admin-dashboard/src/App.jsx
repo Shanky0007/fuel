@@ -5,6 +5,7 @@ import StationsPage from './pages/StationsPage';
 import OperatorsPage from './pages/OperatorsPage';
 import FuelQuotasPage from './pages/FuelQuotasPage';
 import StationsMapPage from './pages/StationsMapPage';
+import LiveQueuePage from './pages/LiveQueuePage';
 import SettingsPage from './pages/SettingsPage';
 import './styles/theme.css';
 import './styles/global.css';
@@ -42,6 +43,8 @@ function App() {
         return <OperatorsPage />;
       case 'fuel-quotas':
         return <FuelQuotasPage />;
+      case 'live-queue':
+        return <LiveQueuePage />;
       case 'settings':
         return <SettingsPage user={user} onLogout={handleLogout} />;
       case 'dashboard':
@@ -65,6 +68,7 @@ function App() {
       'stations-map': 'Carte · Stations',
       operators: 'Opérateurs · Gestion',
       'fuel-quotas': 'Quotas · Carburant',
+      'live-queue': 'Live Queue · Vehicles',
       'settings': 'Settings · Account'
     };
     return titles[activePage] || 'Dashboard';
@@ -114,6 +118,12 @@ function App() {
             onClick={() => { setActivePage('operators'); setSidebarOpen(false); }}
           >
             <span className="nav-icon">👷</span> Operators
+          </div>
+          <div
+            className={`nav-item ${activePage === 'live-queue' ? 'active' : ''}`}
+            onClick={() => { setActivePage('live-queue'); setSidebarOpen(false); }}
+          >
+            <span className="nav-icon">🚗</span> Live Queue
           </div>
           <div
             className={`nav-item ${activePage === 'fuel-quotas' ? 'active' : ''}`}

@@ -38,6 +38,9 @@ router.delete('/stations/:id', authenticate, isAdmin, adminController.deleteStat
 // GET /api/admin/analytics - Get dashboard analytics
 router.get('/analytics', authenticate, isAdmin, adminController.getAnalytics);
 
+// ============ LIVE QUEUE ============
+router.get('/queues', authenticate, isAdmin, adminController.getLiveQueues);
+
 // ============ LOOKUPS ============
 // GET /api/admin/fuel-types - Get all fuel types
 router.get('/fuel-types', authenticate, isAdmin, adminController.getFuelTypes);

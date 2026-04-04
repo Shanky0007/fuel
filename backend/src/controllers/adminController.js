@@ -433,3 +433,23 @@ exports.getLocations = async (req, res) => {
   }
 };
 
+exports.getLiveQueues = async (req, res) => {
+  try {
+    const queues = await prisma.queue.findMany({
+      where: { status: { in: ['WAITING', 'SERVING'] } },
+      include: {
+        user: { select: { id: true, name: true, phone: true } },
+        vehicle: { include: { fuelType: true } },
+        station: { select: { id: true, name: true, city: true, region: true, country: true } },
+        ticket: { select: { verificationCode: true } },
+      },
+      orderBy: { joinedAt: 'asc' },
+    });
+
+    res.json(queues);
+  } catch (error) {
+    console.error('Error fetching live queues:', error);
+    res.status(500).json({ error: 'Failed to fetch live queues' });
+  }
+};
+

@@ -98,6 +98,13 @@ export const lookupService = {
   },
 };
 
+export const queueAdminService = {
+  getLiveQueues: async () => {
+    const response = await api.get("/admin/queues");
+    return Array.isArray(response.data) ? response.data : [];
+  },
+};
+
 export const analyticsService = {
   getOverview: async () => {
     try {
