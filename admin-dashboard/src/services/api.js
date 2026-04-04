@@ -7,7 +7,6 @@ const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
-    "ngrok-skip-browser-warning": "true",
   },
 });
 
@@ -135,6 +134,24 @@ export const analyticsService = {
       { name: "EV", value: 10 },
       { name: "CNG", value: 10 },
     ];
+  },
+};
+
+export const fuelQuotaService = {
+  getAll: async () => {
+    const response = await api.get("/admin/fuel-quotas");
+    return Array.isArray(response.data) ? response.data : [];
+  },
+  update: async (vehicleType, weeklyLimit) => {
+    const response = await api.put("/admin/fuel-quotas", {
+      vehicleType,
+      weeklyLimit,
+    });
+    return response.data;
+  },
+  getVehicleConsumption: async (registrationNumber) => {
+    const response = await api.get(`/admin/fuel-consumption/${registrationNumber}`);
+    return response.data;
   },
 };
 

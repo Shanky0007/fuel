@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { fuelQuotaService } from '../services/api';
 import './FuelQuotasPage.css';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export default function FuelQuotasPage() {
     const [quotas, setQuotas] = useState([]);
@@ -17,11 +15,8 @@ export default function FuelQuotasPage() {
 
     const fetchQuotas = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const response = await axios.get(`${API_URL}/admin/fuel-quotas`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            setQuotas(response.data);
+            const data = await fuelQuotaService.getAll();
+            setQuotas(data);
         } catch (error) {
             console.error('Error fetching quotas:', error);
             alert('Failed to load fuel quotas');
@@ -43,18 +38,7 @@ export default function FuelQuotasPage() {
 
         setSaving(true);
         try {
-            const token = localStorage.getItem('token');
-            await axios.put(
-                `${API_URL}/admin/fuel-quotas`,
-                {
-                    vehicleType,
-                    weeklyLimit: parseFloat(newLimit),
-                },
-                {
-                    headers: { Authorization: `Bearer ${token}` },
-                }
-            );
-
+            await fuelQuotaService.update(vehicleType, parseFloat(newLimit));
             await fetchQuotas();
             setEditingQuota(null);
             setNewLimit('');
