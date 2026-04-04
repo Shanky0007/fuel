@@ -10,7 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
-import { vehicleService } from '../services/api';
+import { vehicleService, authService } from '../services/api';
 import { newTheme } from '../theme/newTheme';
 
 export default function SettingsScreen({ navigation }) {
@@ -18,21 +18,25 @@ export default function SettingsScreen({ navigation }) {
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
-    totalTickets: 23,
-    stationsVisited: 7,
-    timeSaved: '4.2h',
+    totalVisits: 0,
+    stationsVisited: 0,
+    totalFuel: 0,
   });
 
   useEffect(() => {
-    loadVehicles();
+    loadData();
   }, []);
 
-  const loadVehicles = async () => {
+  const loadData = async () => {
     try {
-      const data = await vehicleService.getAll();
-      setVehicles(data);
+      const [vehiclesData, statsData] = await Promise.all([
+        vehicleService.getAll(),
+        authService.getMyStats().catch(() => ({ totalVisits: 0, stationsVisited: 0, totalFuel: 0 })),
+      ]);
+      setVehicles(vehiclesData);
+      setStats(statsData);
     } catch (error) {
-      console.error('Failed to load vehicles:', error);
+      console.error('Failed to load profile data:', error);
     } finally {
       setLoading(false);
     }
@@ -51,7 +55,7 @@ export default function SettingsScreen({ navigation }) {
             onPress: async () => {
               try {
                 await vehicleService.delete(vehicleId);
-                loadVehicles();
+                loadData();
               } catch (error) {
                 Alert.alert('Error', 'Failed to delete vehicle');
               }
@@ -65,7 +69,7 @@ export default function SettingsScreen({ navigation }) {
       if (window.confirm('Are you sure you want to delete this vehicle?')) {
         try {
           await vehicleService.delete(vehicleId);
-          loadVehicles();
+          loadData();
         } catch (error) {
           window.alert('Failed to delete vehicle');
         }
@@ -147,23 +151,23 @@ export default function SettingsScreen({ navigation }) {
           </View>
           <Text style={styles.profileName}>{user.name}</Text>
           <Text style={styles.profileRole}>
-            Customer · Member since {new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+            Customer{user.createdAt ? ` · Member since ${new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}` : ''}
           </Text>
         </View>
 
         {/* Stats */}
         <View style={styles.statsGrid}>
           <View style={styles.statCell}>
-            <Text style={styles.statVal}>{stats.totalTickets}</Text>
-            <Text style={styles.statLbl}>Tickets</Text>
+            <Text style={styles.statVal}>{stats.totalVisits}</Text>
+            <Text style={styles.statLbl}>Visits</Text>
           </View>
           <View style={styles.statCell}>
             <Text style={styles.statVal}>{stats.stationsVisited}</Text>
             <Text style={styles.statLbl}>Stations</Text>
           </View>
           <View style={styles.statCell}>
-            <Text style={styles.statVal}>{stats.timeSaved}</Text>
-            <Text style={styles.statLbl}>Time Saved</Text>
+            <Text style={styles.statVal}>{stats.totalFuel}L</Text>
+            <Text style={styles.statLbl}>Fuel Used</Text>
           </View>
         </View>
 
@@ -208,17 +212,6 @@ export default function SettingsScreen({ navigation }) {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>PREFERENCES</Text>
           
-          <TouchableOpacity style={styles.menuItem}>
-            <View style={[styles.menuIcon, { backgroundColor: newTheme.colors.amberGlow }]}>
-              <Text style={{ fontSize: 17 }}>🔔</Text>
-            </View>
-            <View style={styles.menuText}>
-              <Text style={styles.menuTitle}>Notifications</Text>
-              <Text style={styles.menuSub}>Turn, reminders, alerts</Text>
-            </View>
-            <Text style={styles.menuStatus}>Active</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => navigation.navigate('EditProfile')}
@@ -228,18 +221,7 @@ export default function SettingsScreen({ navigation }) {
             </View>
             <View style={styles.menuText}>
               <Text style={styles.menuTitle}>Edit Profile</Text>
-              <Text style={styles.menuSub}>Update your information</Text>
-            </View>
-            <Text style={styles.menuArrow}>›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.menuItem}>
-            <View style={[styles.menuIcon, { backgroundColor: newTheme.colors.greenGlow }]}>
-              <Text style={{ fontSize: 17 }}>🗺</Text>
-            </View>
-            <View style={styles.menuText}>
-              <Text style={styles.menuTitle}>Favorite Stations</Text>
-              <Text style={styles.menuSub}>{vehicles.length} vehicles registered</Text>
+              <Text style={styles.menuSub}>Name, phone, location</Text>
             </View>
             <Text style={styles.menuArrow}>›</Text>
           </TouchableOpacity>

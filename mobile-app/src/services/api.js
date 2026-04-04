@@ -77,6 +77,10 @@ export const authService = {
     const response = await api.post("/auth/reset-password", { token, newPassword });
     return response.data;
   },
+  getMyStats: async () => {
+    const response = await api.get("/auth/me/stats");
+    return response.data;
+  },
 };
 
 // Station Service

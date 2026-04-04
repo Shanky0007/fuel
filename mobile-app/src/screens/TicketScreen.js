@@ -43,7 +43,9 @@ export default function TicketScreen({ route, navigation }) {
         setTicketInfo(null);
       }
     } catch (error) {
-      console.error('Failed to load queue status', error);
+      if (error.response?.status !== 404) {
+        console.error('Failed to load queue status', error);
+      }
       setQueueData(null);
       setTicketInfo(null);
     } finally {

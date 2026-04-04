@@ -32,6 +32,12 @@ export default function OperatorDashboardScreen() {
     const [permission, requestPermission] = useCameraPermissions();
     const hasScannedRef = useRef(false);
 
+    useEffect(() => {
+        if (operator && operator.id) {
+            loadQueue();
+        }
+    }, [activeTab, operator]);
+
     // Show loading while auth is initializing
     if (authLoading || !operator || !operator.id) {
         return (
@@ -41,12 +47,6 @@ export default function OperatorDashboardScreen() {
             </View>
         );
     }
-
-    useEffect(() => {
-        if (operator && operator.id) {
-            loadQueue();
-        }
-    }, [activeTab, operator]);
 
     const loadQueue = async () => {
         try {
@@ -248,16 +248,32 @@ export default function OperatorDashboardScreen() {
             <SafeAreaView>
                 <View style={styles.header}>
                     <View style={styles.headerLeft}>
-                        <Text style={styles.headerIcon}>⛽</Text>
-                        <View>
-                            <Text style={styles.headerTitle}>Operator Dashboard</Text>
-                            <Text style={styles.headerSubtitle}>Welcome, {operator?.name}</Text>
+                        <View style={styles.headerAvatar}>
+                            <Text style={styles.headerAvatarText}>
+                                {operator?.name?.charAt(0)?.toUpperCase() || 'O'}
+                            </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.headerTitle}>{operator?.name}</Text>
+                            <Text style={styles.headerSubtitle}>
+                                {operator?.assignedStation
+                                    ? `⛽ ${operator.assignedStation.name}`
+                                    : 'Operator'}
+                            </Text>
                         </View>
                     </View>
                     <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-                        <Text style={styles.logoutText}>Logout</Text>
+                        <Text style={styles.logoutText}>Exit</Text>
                     </TouchableOpacity>
                 </View>
+                {operator?.assignedStation && (
+                    <View style={styles.stationBar}>
+                        <View style={styles.stationBarDot} />
+                        <Text style={styles.stationBarText}>
+                            {operator.assignedStation.city || operator.assignedStation.region || 'On Duty'}
+                        </Text>
+                    </View>
+                )}
             </SafeAreaView>
 
             {/* Tabs */}
@@ -571,28 +587,41 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingVertical: 16,
+        paddingVertical: 14,
     },
     headerLeft: {
         flexDirection: 'row',
         alignItems: 'center',
+        flex: 1,
+        gap: 12,
     },
-    headerIcon: {
-        fontSize: 36,
-        marginRight: 16,
+    headerAvatar: {
+        width: 42,
+        height: 42,
+        borderRadius: 12,
+        backgroundColor: newTheme.colors.amber,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    headerAvatarText: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: newTheme.colors.bg,
     },
     headerTitle: {
         fontSize: 16,
         fontWeight: '700',
         color: newTheme.colors.text,
+        letterSpacing: -0.3,
     },
     headerSubtitle: {
         fontSize: 12,
         color: newTheme.colors.text2,
+        marginTop: 1,
     },
     logoutButton: {
         backgroundColor: newTheme.colors.bg3,
-        paddingHorizontal: 16,
+        paddingHorizontal: 14,
         paddingVertical: 8,
         borderRadius: 10,
         borderWidth: 1,
@@ -601,7 +630,31 @@ const styles = StyleSheet.create({
     logoutText: {
         color: newTheme.colors.red,
         fontWeight: '600',
-        fontSize: 13,
+        fontSize: 12,
+    },
+    stationBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginHorizontal: 20,
+        marginBottom: 4,
+        paddingVertical: 8,
+        paddingHorizontal: 14,
+        backgroundColor: 'rgba(52,211,153,0.06)',
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(52,211,153,0.1)',
+        gap: 8,
+    },
+    stationBarDot: {
+        width: 7,
+        height: 7,
+        borderRadius: 4,
+        backgroundColor: newTheme.colors.green,
+    },
+    stationBarText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: newTheme.colors.green,
     },
     tabs: {
         flexDirection: 'row',

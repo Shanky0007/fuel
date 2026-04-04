@@ -13,6 +13,7 @@ import './App.css';
 function App() {
   const [user, setUser] = useState(null);
   const [activePage, setActivePage] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
@@ -71,8 +72,11 @@ function App() {
 
   return (
     <div className="app">
+      {/* SIDEBAR OVERLAY */}
+      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
+
       {/* SIDEBAR */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
         <div className="logo">
           <div className="logo-mark">
             <div className="logo-icon">⛽</div>
@@ -87,19 +91,19 @@ function App() {
           <div className="nav-section">Dashboard</div>
           <div
             className={`nav-item ${activePage === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActivePage('dashboard')}
+            onClick={() => { setActivePage('dashboard'); setSidebarOpen(false); }}
           >
             <span className="nav-icon">◈</span> Overview
           </div>
           <div
             className={`nav-item ${activePage === 'stations' ? 'active' : ''}`}
-            onClick={() => setActivePage('stations')}
+            onClick={() => { setActivePage('stations'); setSidebarOpen(false); }}
           >
             <span className="nav-icon">⚡</span> Stations
           </div>
           <div
             className={`nav-item ${activePage === 'stations-map' ? 'active' : ''}`}
-            onClick={() => setActivePage('stations-map')}
+            onClick={() => { setActivePage('stations-map'); setSidebarOpen(false); }}
           >
             <span className="nav-icon">🗺</span> Map
           </div>
@@ -107,13 +111,13 @@ function App() {
           <div className="nav-section" style={{ marginTop: '10px' }}>Operations</div>
           <div
             className={`nav-item ${activePage === 'operators' ? 'active' : ''}`}
-            onClick={() => setActivePage('operators')}
+            onClick={() => { setActivePage('operators'); setSidebarOpen(false); }}
           >
             <span className="nav-icon">👷</span> Operators
           </div>
           <div
             className={`nav-item ${activePage === 'fuel-quotas' ? 'active' : ''}`}
-            onClick={() => setActivePage('fuel-quotas')}
+            onClick={() => { setActivePage('fuel-quotas'); setSidebarOpen(false); }}
           >
             <span className="nav-icon">◉</span> Fuel Quotas
           </div>
@@ -150,6 +154,9 @@ function App() {
       <div className="main">
         {/* TOPBAR */}
         <div className="topbar">
+          <button className="hamburger" onClick={() => setSidebarOpen(!sidebarOpen)}>
+            <span></span><span></span><span></span>
+          </button>
           <div className="page-title">
             {getPageTitle().split('·').map((part, i) => (
               <span key={i}>

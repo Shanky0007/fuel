@@ -399,4 +399,24 @@ const resetPassword = async (req, res) => {
     }
 };
 
-module.exports = { register, login, getMe, updateLocation, updateVehicle, updateProfile, forgotPassword, resetPassword };
+const getMyStats = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+
+        const [completedQueues, totalFuel, stationIds] = await Promise.all([
+            prisma.queue.count({ where: { userId, status: 'COMPLETED' } }),
+            prisma.queue.aggregate({ where: { userId, status: 'COMPLETED' }, _sum: { fuelAmount: true } }),
+            prisma.queue.findMany({ where: { userId, status: 'COMPLETED' }, select: { stationId: true }, distinct: ['stationId'] }),
+        ]);
+
+        res.json({
+            totalVisits: completedQueues,
+            stationsVisited: stationIds.length,
+            totalFuel: Math.round((totalFuel._sum.fuelAmount || 0) * 10) / 10,
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+module.exports = { register, login, getMe, getMyStats, updateLocation, updateVehicle, updateProfile, forgotPassword, resetPassword };

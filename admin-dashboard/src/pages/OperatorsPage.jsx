@@ -320,30 +320,60 @@ export default function OperatorsPage() {
                     </div>
                 ) : (
                     operators.map(operator => (
-                        <div key={operator.id} className="operator-card">
-                            <div className="operator-avatar">
-                                {operator.name?.charAt(0)?.toUpperCase() || '?'}
-                            </div>
-                            <div className="operator-info">
-                                <h3>{operator.name}</h3>
-                                <p className="operator-email">{operator.email}</p>
-                                {operator.phone && (
-                                    <p className="operator-phone">📞 {operator.phone}</p>
-                                )}
-                                <div className="operator-location">
-                                    {operator.city && operator.region && operator.country && (
-                                        <span className="location-tag">
-                                            📍 {operator.city}, {operator.region}, {operator.country}
-                                        </span>
-                                    )}
-                                    {!operator.city && operator.region && operator.country && (
-                                        <span className="location-tag">
-                                            📍 {operator.region}, {operator.country}
-                                        </span>
-                                    )}
+                        <div key={operator.id} className="op-card">
+                            {/* Header row */}
+                            <div className="op-card-header">
+                                <div className="op-avatar">
+                                    {operator.name?.charAt(0)?.toUpperCase() || '?'}
                                 </div>
-                                <div className="assigned-region">
-                                    <label>Assigned Region:</label>
+                                <div className="op-name-block">
+                                    <div className="op-name">{operator.name}</div>
+                                    <div className="op-role">Operator</div>
+                                </div>
+                                <button
+                                    className="btn-icon btn-delete"
+                                    onClick={() => handleDelete(operator)}
+                                    title="Delete Operator"
+                                >
+                                    🗑️
+                                </button>
+                            </div>
+
+                            {/* Details grid */}
+                            <div className="op-details">
+                                <div className="op-detail-row">
+                                    <span className="op-detail-label">Email</span>
+                                    <span className="op-detail-value">{operator.email}</span>
+                                </div>
+                                {operator.phone && (
+                                    <div className="op-detail-row">
+                                        <span className="op-detail-label">Phone</span>
+                                        <span className="op-detail-value">{operator.phone}</span>
+                                    </div>
+                                )}
+                                {(operator.city || operator.region) && (
+                                    <div className="op-detail-row">
+                                        <span className="op-detail-label">Location</span>
+                                        <span className="op-detail-value">
+                                            {[operator.city, operator.region].filter(Boolean).join(', ')}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Station & Region */}
+                            <div className="op-assignments">
+                                {operator.assignedStation && (
+                                    <div className="op-station-box">
+                                        <span className="op-station-icon">⛽</span>
+                                        <div>
+                                            <div className="op-station-name">{operator.assignedStation.name}</div>
+                                            <div className="op-station-loc">{operator.assignedStation.city}</div>
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="op-region-select-group">
+                                    <label>REGION</label>
                                     <select
                                         value={operator.assignedRegion || ''}
                                         onChange={(e) => handleAssignRegion(operator.id, e.target.value)}
@@ -357,23 +387,6 @@ export default function OperatorsPage() {
                                         ))}
                                     </select>
                                 </div>
-                                {operator.assignedStation && (
-                                    <div className="assigned-station">
-                                        <label>Assigned Station:</label>
-                                        <span className="station-badge">
-                                            ⛽ {operator.assignedStation.name} ({operator.assignedStation.city})
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="operator-actions">
-                                <button
-                                    className="btn-icon btn-delete"
-                                    onClick={() => handleDelete(operator)}
-                                    title="Delete Operator"
-                                >
-                                    🗑️
-                                </button>
                             </div>
                         </div>
                     ))
@@ -386,9 +399,8 @@ export default function OperatorsPage() {
                 <div className="info-content">
                     <h4>Operator Login Information</h4>
                     <p>
-                        Operators can log in to the <strong>Operator Panel</strong> at{' '}
-                        <code>http://localhost:5173</code> using their email and password.
-                        They will be able to scan customer QR codes and manage queues for stations in their assigned region.
+                        Operators log in via the <strong>Smart Fuel mobile app</strong> using their email and password.
+                        They can scan customer QR codes and manage queues for their assigned station.
                     </p>
                 </div>
             </div>
