@@ -22,43 +22,67 @@ export default function EditProfileScreen({ navigation }) {
   const { user, setUser } = useContext(AuthContext);
   const [name, setName] = useState(user.name || '');
   const [phone, setPhone] = useState(user.phone || '');
+  const [country, setCountry] = useState(user.country || '');
   const [region, setRegion] = useState(user.region || '');
   const [city, setCity] = useState(user.city || '');
 
+  const [countries, setCountries] = useState([]);
   const [regions, setRegions] = useState([]);
   const [cities, setCities] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingRegions, setLoadingRegions] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadRegions();
+    loadData();
   }, []);
 
-  const loadRegions = async () => {
+  const loadData = async () => {
     try {
-      const data = await lookupService.getSouthAfricaRegions();
-      setRegions(data);
-      if (user.region) {
-        const selected = data.find(r => r.name === user.region);
-        if (selected) await loadCities(selected.id);
+      const data = await lookupService.getCountries();
+      setCountries(Array.isArray(data) ? data : []);
+
+      // If user already has a country, load its regions
+      if (user.country) {
+        const userCountry = data.find(c => c.name === user.country);
+        if (userCountry) {
+          const regionsData = await lookupService.getRegionsByCountry(userCountry.id);
+          setRegions(Array.isArray(regionsData) ? regionsData : []);
+
+          // If user has a region, load its cities
+          if (user.region) {
+            const userRegion = regionsData.find(r => r.name === user.region);
+            if (userRegion) {
+              const citiesData = await lookupService.getCitiesByRegion(userRegion.id);
+              setCities(Array.isArray(citiesData) ? citiesData : []);
+            }
+          }
+        }
       }
     } catch (error) {
-      console.error('Failed to load regions:', error);
+      console.error('Failed to load location data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadCities = async (regionId) => {
-    setLoadingCities(true);
+  const handleCountrySelect = async (countryId) => {
+    const c = countries.find(c => c.id === countryId);
+    setCountry(c ? c.name : '');
+    setRegion('');
+    setCity('');
+    setRegions([]);
+    setCities([]);
+    if (!countryId) return;
+    setLoadingRegions(true);
     try {
-      const data = await lookupService.getCitiesByRegion(regionId);
-      setCities(data);
+      const data = await lookupService.getRegionsByCountry(countryId);
+      setRegions(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Failed to load cities:', error);
+      console.error('Failed to load regions:', error);
     } finally {
-      setLoadingCities(false);
+      setLoadingRegions(false);
     }
   };
 
@@ -67,7 +91,16 @@ export default function EditProfileScreen({ navigation }) {
     setRegion(r ? r.name : '');
     setCity('');
     setCities([]);
-    await loadCities(regionId);
+    if (!regionId) return;
+    setLoadingCities(true);
+    try {
+      const data = await lookupService.getCitiesByRegion(regionId);
+      setCities(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to load cities:', error);
+    } finally {
+      setLoadingCities(false);
+    }
   };
 
   const handleSave = async () => {
@@ -76,15 +109,15 @@ export default function EditProfileScreen({ navigation }) {
       Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Error', msg);
       return;
     }
-    if (!region || !city) {
-      const msg = 'Please select region and city';
+    if (!country || !region || !city) {
+      const msg = 'Please select country, state/region, and city';
       Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Error', msg);
       return;
     }
 
     setSaving(true);
     try {
-      const response = await authService.updateProfile({ name, phone, country: 'South Africa', region, city });
+      const response = await authService.updateProfile({ name, phone, country, region, city });
       setUser(response.user);
       const msg = 'Profile updated successfully!';
       if (Platform.OS === 'web') {
@@ -122,13 +155,7 @@ export default function EditProfileScreen({ navigation }) {
       <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.formGroup}>
           <Text style={styles.formLabel}>NAME</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Your name"
-            placeholderTextColor={colors.text3}
-            value={name}
-            onChangeText={setName}
-          />
+          <TextInput style={styles.input} placeholder="Your name" placeholderTextColor={colors.text3} value={name} onChangeText={setName} />
         </View>
 
         <View style={styles.formGroup}>
@@ -140,31 +167,27 @@ export default function EditProfileScreen({ navigation }) {
 
         <View style={styles.formGroup}>
           <Text style={styles.formLabel}>PHONE</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="+27 XX XXX XXXX"
-            placeholderTextColor={colors.text3}
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-          />
-        </View>
-
-        {/* Country - static */}
-        <View style={styles.formGroup}>
-          <Text style={styles.formLabel}>COUNTRY</Text>
-          <View style={[styles.input, styles.inputDisabled]}>
-            <Text style={styles.inputDisabledText}>South Africa</Text>
-          </View>
+          <TextInput style={styles.input} placeholder="Phone number" placeholderTextColor={colors.text3} value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
         </View>
 
         <View style={styles.formGroup}>
           <CustomPicker
-            label="PROVINCE"
+            label="COUNTRY"
+            value={country}
+            placeholder="Select Country"
+            items={countries.map(c => ({ label: c.name, value: c.id }))}
+            onSelect={handleCountrySelect}
+          />
+        </View>
+
+        <View style={styles.formGroup}>
+          <CustomPicker
+            label="STATE / REGION"
             value={region}
-            placeholder="Select Province"
+            placeholder={loadingRegions ? 'Loading...' : 'Select State / Region'}
             items={regions.map(r => ({ label: r.name, value: r.id }))}
             onSelect={handleRegionSelect}
+            disabled={!country || loadingRegions}
           />
         </View>
 
@@ -180,16 +203,8 @@ export default function EditProfileScreen({ navigation }) {
         </View>
 
         <View style={[styles.formGroup, styles.actionArea]}>
-          <TouchableOpacity
-            style={[styles.btnPrimary, saving && styles.btnDisabled]}
-            onPress={handleSave}
-            disabled={saving}
-            activeOpacity={0.8}
-          >
-            {saving
-              ? <ActivityIndicator color={colors.bg} />
-              : <Text style={styles.btnPrimaryText}>Save Changes</Text>
-            }
+          <TouchableOpacity style={[styles.btnPrimary, saving && styles.btnDisabled]} onPress={handleSave} disabled={saving} activeOpacity={0.8}>
+            {saving ? <ActivityIndicator color={colors.bg} /> : <Text style={styles.btnPrimaryText}>Save Changes</Text>}
           </TouchableOpacity>
         </View>
 
@@ -202,34 +217,18 @@ export default function EditProfileScreen({ navigation }) {
 const makeStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   loadingContainer: { flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16,
-  },
-  backBtn: {
-    width: 44, height: 44, backgroundColor: colors.bg2, borderWidth: 1,
-    borderColor: colors.border, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
-  },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 },
+  backBtn: { width: 44, height: 44, backgroundColor: colors.bg2, borderWidth: 1, borderColor: colors.border, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   backIcon: { fontSize: 20, color: colors.text },
   headerTitle: { fontSize: 16, fontWeight: '600', color: colors.text },
   scrollArea: { flex: 1 },
   formGroup: { paddingHorizontal: 20, marginBottom: 20 },
-  formLabel: {
-    fontSize: 11, fontWeight: '600', color: colors.text3,
-    letterSpacing: 1, marginBottom: 8, textTransform: 'uppercase',
-  },
-  input: {
-    height: 54, backgroundColor: colors.bg3, borderWidth: 1,
-    borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16,
-    fontSize: 15, color: colors.text, justifyContent: 'center',
-  },
+  formLabel: { fontSize: 11, fontWeight: '600', color: colors.text3, letterSpacing: 1, marginBottom: 8, textTransform: 'uppercase' },
+  input: { height: 54, backgroundColor: colors.bg3, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, fontSize: 15, color: colors.text, justifyContent: 'center' },
   inputDisabled: { opacity: 0.5 },
   inputDisabledText: { fontSize: 15, color: colors.text2 },
   actionArea: { marginTop: 8 },
-  btnPrimary: {
-    height: 54, backgroundColor: colors.amber, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  btnPrimary: { height: 54, backgroundColor: colors.amber, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   btnDisabled: { opacity: 0.5 },
   btnPrimaryText: { fontSize: 16, fontWeight: '700', color: colors.bg, letterSpacing: -0.2 },
 });

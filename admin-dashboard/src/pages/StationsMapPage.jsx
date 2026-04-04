@@ -40,8 +40,8 @@ function getStationIcon(station) {
 export default function StationsMapPage() {
   const [stations, setStations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [mapCenter, setMapCenter] = useState([-28.4793, 24.6727]);
-  const [mapZoom, setMapZoom] = useState(6);
+  const [mapCenter, setMapCenter] = useState([9.0820, -1.0800]);
+  const [mapZoom, setMapZoom] = useState(5);
   const [mapKey, setMapKey] = useState(0);
 
   useEffect(() => {

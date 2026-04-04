@@ -9,6 +9,7 @@
   border: 1px solid var(--border);
   cursor: grab;
   user-select: none;
+  touch-action: none;
 }
 
 .stations-map:active {

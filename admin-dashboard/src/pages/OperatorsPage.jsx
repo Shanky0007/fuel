@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { operatorService, lookupService, stationService } from '../services/api';
+import CustomSelect from '../components/CustomSelect';
 import './OperatorsPage.css';
 
 export default function OperatorsPage() {
@@ -15,7 +16,7 @@ export default function OperatorsPage() {
         email: '',
         password: '',
         phone: '',
-        country: 'South Africa',
+        country: '',
         region: '',
         city: '',
         assignedRegion: '',
@@ -107,7 +108,7 @@ export default function OperatorsPage() {
             email: '',
             password: '',
             phone: '',
-            country: 'South Africa',
+            country: '',
             region: '',
             city: '',
             assignedRegion: '',
@@ -236,62 +237,49 @@ export default function OperatorsPage() {
 
                             <div className="form-group">
                                 <label>Country</label>
-                                <input
-                                    type="text"
-                                    value="South Africa"
-                                    readOnly
-                                    style={{ opacity: 0.5, cursor: 'default' }}
+                                <CustomSelect
+                                    name="country"
+                                    value={formData.country}
+                                    onChange={handleInputChange}
+                                    options={locations.map(c => ({ label: c.name, value: c.name }))}
+                                    placeholder="Select Country"
                                 />
                             </div>
 
                             <div className="form-group">
-                                <label>Region</label>
-                                <select
+                                <label>State / Region</label>
+                                <CustomSelect
                                     name="region"
                                     value={formData.region}
                                     onChange={handleInputChange}
-                                >
-                                    <option value="">Select Region</option>
-                                    {getRegionsForCountry(formData.country).map(region => (
-                                        <option key={region.id} value={region.name}>
-                                            {region.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                    options={getRegionsForCountry(formData.country).map(r => ({ label: r.name, value: r.name }))}
+                                    placeholder="Select State / Region"
+                                    disabled={!formData.country}
+                                />
                             </div>
 
                             <div className="form-group">
                                 <label>City</label>
-                                <select
+                                <CustomSelect
                                     name="city"
                                     value={formData.city}
                                     onChange={handleInputChange}
+                                    options={cities.map(c => ({ label: c.name, value: c.name }))}
+                                    placeholder={loadingCities ? 'Loading...' : 'Select City'}
                                     disabled={!formData.region || loadingCities}
-                                >
-                                    <option value="">{loadingCities ? 'Loading...' : 'Select City'}</option>
-                                    {cities.map(city => (
-                                        <option key={city.id} value={city.name}>
-                                            {city.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                />
                             </div>
 
                             <div className="form-group full-width">
                                 <label>Assigned Station (Required) *</label>
-                                <select
+                                <CustomSelect
                                     name="assignedStationId"
                                     value={formData.assignedStationId}
                                     onChange={handleInputChange}
+                                    options={stations.map(s => ({ label: `${s.name} — ${s.city}, ${s.region}`, value: s.id }))}
+                                    placeholder="Select Station"
                                     required
-                                >
-                                    <option value="">Select Station</option>
-                                    {stations.map(station => (
-                                        <option key={station.id} value={station.id}>
-                                            {station.name} - {station.city}, {station.region}
-                                        </option>
-                                    ))}
-                                </select>
+                                />
                                 <span className="form-hint">
                                     Operator will ONLY be able to manage queues for this specific station.
                                 </span>
@@ -374,18 +362,13 @@ export default function OperatorsPage() {
                                 )}
                                 <div className="op-region-select-group">
                                     <label>REGION</label>
-                                    <select
+                                    <CustomSelect
+                                        name={`region-${operator.id}`}
                                         value={operator.assignedRegion || ''}
                                         onChange={(e) => handleAssignRegion(operator.id, e.target.value)}
-                                        className="region-select"
-                                    >
-                                        <option value="">Not Assigned</option>
-                                        {getAllRegions().map(region => (
-                                            <option key={region.id} value={region.name}>
-                                                {region.displayName}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        options={getAllRegions().map(r => ({ label: r.displayName, value: r.name }))}
+                                        placeholder="Not Assigned"
+                                    />
                                 </div>
                             </div>
                         </div>

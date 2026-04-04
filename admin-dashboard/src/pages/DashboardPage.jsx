@@ -16,25 +16,51 @@ export default function DashboardPage({ user, onLogout }) {
   const panStart = useRef({ x: 0, y: 0 });
   const panOrigin = useRef({ x: 0, y: 0 });
 
-  const onMapMouseDown = useCallback((e) => {
+  const onPanStart = useCallback((clientX, clientY) => {
     isPanning.current = true;
-    panStart.current = { x: e.clientX, y: e.clientY };
+    panStart.current = { x: clientX, y: clientY };
     panOrigin.current = mapPan;
-    e.preventDefault();
   }, [mapPan]);
 
+  const onMapMouseDown = useCallback((e) => {
+    onPanStart(e.clientX, e.clientY);
+    e.preventDefault();
+  }, [onPanStart]);
+
+  const onMapTouchStart = useCallback((e) => {
+    const t = e.touches[0];
+    onPanStart(t.clientX, t.clientY);
+  }, [onPanStart]);
+
   useEffect(() => {
-    const onMove = (e) => {
+    const onMouseMove = (e) => {
       if (!isPanning.current) return;
       setMapPan({
         x: panOrigin.current.x + (e.clientX - panStart.current.x),
         y: panOrigin.current.y + (e.clientY - panStart.current.y),
       });
     };
-    const onUp = () => { isPanning.current = false; };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    const onTouchMove = (e) => {
+      if (!isPanning.current) return;
+      const t = e.touches[0];
+      setMapPan({
+        x: panOrigin.current.x + (t.clientX - panStart.current.x),
+        y: panOrigin.current.y + (t.clientY - panStart.current.y),
+      });
+      e.preventDefault();
+    };
+    const onEnd = () => { isPanning.current = false; };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onEnd);
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onEnd);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onEnd);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onEnd);
+    };
   }, []);
 
   useEffect(() => {
@@ -108,7 +134,7 @@ export default function DashboardPage({ user, onLogout }) {
               <span style={{ color: 'var(--muted)', fontSize: 10, userSelect: 'none' }}>drag to pan</span>
             </div>
           </div>
-          <div className="stations-map" onMouseDown={onMapMouseDown}>
+          <div className="stations-map" onMouseDown={onMapMouseDown} onTouchStart={onMapTouchStart}>
             <div
               className="map-canvas"
               style={{ transform: `translate(${mapPan.x}px, ${mapPan.y}px)` }}

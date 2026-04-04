@@ -161,15 +161,6 @@ export const lookupService = {
     const response = await api.get(`/locations/countries/${countryId}/regions`);
     return Array.isArray(response.data) ? response.data : [];
   },
-  getSouthAfricaRegions: async () => {
-    const countries = await lookupService.getCountries();
-    console.log('Countries loaded:', countries.length, countries.map(c => c.name));
-    const sa = countries.find(c => c.name === 'South Africa') || countries[0];
-    if (!sa) { console.log('No SA country found'); return []; }
-    const regions = await lookupService.getRegionsByCountry(sa.id);
-    console.log('Regions loaded:', regions.length, regions.map(r => r.name));
-    return regions;
-  },
   getCitiesByRegion: async (regionId) => {
     const response = await api.get(`/locations/regions/${regionId}/cities`);
     return Array.isArray(response.data) ? response.data : [];

@@ -90,6 +90,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    position: relative;
 }
 
 .form-group label {
@@ -128,6 +129,124 @@
 .form-group select:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+/* Geolocation */
+.geo-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.geo-fields {
+    flex: 1;
+    display: flex;
+    gap: 10px;
+}
+
+.geo-field {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.geo-field label {
+    color: #94a3b8;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.geo-field input {
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    font-size: 1rem;
+    font-family: var(--font-mono);
+}
+
+.geo-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 16px;
+    height: 44px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg3);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--font-display);
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.geo-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    background: rgba(240, 192, 64, 0.08);
+}
+
+.geo-btn.loading {
+    opacity: 0.7;
+    cursor: wait;
+}
+
+.geo-btn.success {
+    border-color: var(--green);
+    background: rgba(62, 255, 160, 0.08);
+    color: var(--green);
+}
+
+.geo-btn.error {
+    border-color: var(--red);
+    background: rgba(255, 77, 109, 0.08);
+    color: var(--red);
+}
+
+.geo-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid transparent;
+    border-top-color: var(--accent);
+    border-right-color: var(--accent);
+    border-radius: 50%;
+    animation: geoSpin 0.6s linear infinite;
+}
+
+@keyframes geoSpin {
+    to { transform: rotate(360deg); }
+}
+
+.geo-hint {
+    margin-top: 8px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--muted);
+}
+
+.geo-hint.success {
+    color: var(--green);
+}
+
+@media (max-width: 600px) {
+    .geo-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .geo-btn {
+        justify-content: center;
+        height: 42px;
+    }
+
+    .geo-fields {
+        flex-direction: column;
+    }
 }
 
 /* Fuel Types */
@@ -319,20 +438,9 @@
     border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.status-select {
+.status-select-wrap {
     flex: 1;
-    padding: 0.5rem 0.75rem;
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.05);
-    color: #fff;
-    font-size: 0.875rem;
-    cursor: pointer;
-}
-
-.status-select option {
-    background: #1e1b4b;
-    color: #fff;
+    min-width: 0;
 }
 
 .btn-icon {

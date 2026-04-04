@@ -138,7 +138,6 @@
     background: var(--bg2);
     border: 1px solid var(--border);
     border-radius: 14px;
-    overflow: hidden;
     transition: border-color 0.2s;
 }
 
@@ -263,20 +262,6 @@
     font-weight: 700;
 }
 
-.region-select {
-    padding: 10px 12px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--bg3);
-    color: var(--text);
-    font-size: 13px;
-    font-family: var(--font-display);
-    cursor: pointer;
-    outline: none;
-}
-
-.region-select:focus { border-color: var(--accent); }
-.region-select option { background: var(--bg3); color: var(--text); }
 
 .btn-icon {
     width: 34px;

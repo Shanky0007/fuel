@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { stationService, lookupService } from '../services/api';
+import CustomSelect from '../components/CustomSelect';
 import './StationsPage.css';
 
 export default function StationsPage() {
@@ -18,7 +19,7 @@ export default function StationsPage() {
         location: '',
         latitude: '',
         longitude: '',
-        country: 'South Africa',
+        country: '',
         region: '',
         city: '',
         totalPumps: 4,
@@ -26,6 +27,93 @@ export default function StationsPage() {
     });
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [geoStatus, setGeoStatus] = useState(''); // '', 'loading', 'success', 'error'
+
+    const getMyLocation = useCallback(() => {
+        if (!navigator.geolocation) {
+            setError('Geolocation is not supported by your browser');
+            return;
+        }
+        setGeoStatus('loading');
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const lat = position.coords.latitude.toFixed(6);
+                const lng = position.coords.longitude.toFixed(6);
+                setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+                setGeoStatus('success');
+
+                // Reverse geocode to get address + auto-fill country/region/city
+                try {
+                    const res = await fetch(
+                        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=18`,
+                        { headers: { 'Accept-Language': 'en' } }
+                    );
+                    const geo = await res.json();
+                    const addr = geo.address || {};
+
+                    // Build short address for location field
+                    const shortAddr = [addr.road, addr.suburb || addr.neighbourhood, addr.city || addr.town].filter(Boolean).join(', ')
+                        || geo.display_name?.split(',').slice(0, 3).join(',') || '';
+
+                    // Match country from reverse geocode against our DB locations
+                    const geoCountry = addr.country || '';
+                    const geoState = addr.state || '';
+                    const geoCity = addr.city || addr.town || addr.village || addr.county || '';
+
+                    const matchedCountry = locations.find(c =>
+                        c.name.toLowerCase() === geoCountry.toLowerCase()
+                    );
+
+                    let matchedRegion = null;
+                    let matchedCity = null;
+
+                    if (matchedCountry) {
+                        // Try exact match first, then partial
+                        matchedRegion = matchedCountry.regions?.find(r =>
+                            r.name.toLowerCase() === geoState.toLowerCase()
+                        ) || matchedCountry.regions?.find(r =>
+                            geoState.toLowerCase().includes(r.name.toLowerCase()) ||
+                            r.name.toLowerCase().includes(geoState.toLowerCase())
+                        );
+
+                        // Load cities for matched region and try to match city
+                        if (matchedRegion) {
+                            try {
+                                const citiesData = await lookupService.getCitiesForRegion(matchedRegion.id);
+                                setCities(citiesData);
+                                matchedCity = citiesData.find(c =>
+                                    c.name.toLowerCase() === geoCity.toLowerCase()
+                                ) || citiesData.find(c =>
+                                    geoCity.toLowerCase().includes(c.name.toLowerCase()) ||
+                                    c.name.toLowerCase().includes(geoCity.toLowerCase())
+                                );
+                            } catch (e) {
+                                console.error('Failed to load cities for geo match:', e);
+                            }
+                        }
+                    }
+
+                    setFormData(prev => ({
+                        ...prev,
+                        location: prev.location || shortAddr,
+                        country: matchedCountry ? matchedCountry.name : prev.country,
+                        region: matchedRegion ? matchedRegion.name : prev.region,
+                        city: matchedCity ? matchedCity.name : prev.city,
+                    }));
+                } catch (e) {
+                    // Reverse geocoding is optional
+                }
+
+                setTimeout(() => setGeoStatus(''), 3000);
+            },
+            (err) => {
+                setGeoStatus('error');
+                setError(`Location error: ${err.message}`);
+                setTimeout(() => setGeoStatus(''), 3000);
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    }, [locations]);
 
     useEffect(() => {
         loadData();
@@ -140,7 +228,7 @@ export default function StationsPage() {
             location: '',
             latitude: '',
             longitude: '',
-            country: 'South Africa',
+            country: '',
             region: '',
             city: '',
             totalPumps: 4,
@@ -313,71 +401,92 @@ export default function StationsPage() {
 
                             <div className="form-group">
                                 <label>Country *</label>
-                                <input
-                                    type="text"
-                                    value="South Africa"
-                                    readOnly
-                                    style={{ opacity: 0.5, cursor: 'default' }}
+                                <CustomSelect
+                                    name="country"
+                                    value={formData.country}
+                                    onChange={handleInputChange}
+                                    options={locations.map(c => ({ label: c.name, value: c.name }))}
+                                    placeholder="Select Country"
+                                    required
                                 />
                             </div>
 
                             <div className="form-group">
-                                <label>Region *</label>
-                                <select
+                                <label>State / Region *</label>
+                                <CustomSelect
                                     name="region"
                                     value={formData.region}
                                     onChange={handleInputChange}
+                                    options={getRegionsForCountry(formData.country).map(r => ({ label: r.name, value: r.name }))}
+                                    placeholder="Select State / Region"
+                                    disabled={!formData.country}
                                     required
-                                >
-                                    <option value="">Select Region</option>
-                                    {getRegionsForCountry(formData.country).map(region => (
-                                        <option key={region.id} value={region.name}>
-                                            {region.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                />
                             </div>
 
                             <div className="form-group">
                                 <label>City *</label>
-                                <select
+                                <CustomSelect
                                     name="city"
                                     value={formData.city}
                                     onChange={handleInputChange}
-                                    required
+                                    options={cities.map(c => ({ label: c.name, value: c.name }))}
+                                    placeholder={loadingCities ? 'Loading...' : 'Select City'}
                                     disabled={!formData.region || loadingCities}
-                                >
-                                    <option value="">{loadingCities ? 'Loading...' : 'Select City'}</option>
-                                    {cities.map(city => (
-                                        <option key={city.id} value={city.name}>
-                                            {city.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="form-group">
-                                <label>Latitude</label>
-                                <input
-                                    type="number"
-                                    name="latitude"
-                                    value={formData.latitude}
-                                    onChange={handleInputChange}
-                                    placeholder="e.g., -26.2041"
-                                    step="any"
+                                    required
                                 />
                             </div>
 
-                            <div className="form-group">
-                                <label>Longitude</label>
-                                <input
-                                    type="number"
-                                    name="longitude"
-                                    value={formData.longitude}
-                                    onChange={handleInputChange}
-                                    placeholder="e.g., 28.0473"
-                                    step="any"
-                                />
+                            <div className="form-group full-width">
+                                <div className="geo-row">
+                                    <div className="geo-fields">
+                                        <div className="geo-field">
+                                            <label>Latitude</label>
+                                            <input
+                                                type="number"
+                                                name="latitude"
+                                                value={formData.latitude}
+                                                onChange={handleInputChange}
+                                                placeholder="e.g., 6.5244"
+                                                step="any"
+                                            />
+                                        </div>
+                                        <div className="geo-field">
+                                            <label>Longitude</label>
+                                            <input
+                                                type="number"
+                                                name="longitude"
+                                                value={formData.longitude}
+                                                onChange={handleInputChange}
+                                                placeholder="e.g., 3.3792"
+                                                step="any"
+                                            />
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className={`geo-btn ${geoStatus}`}
+                                        onClick={getMyLocation}
+                                        disabled={geoStatus === 'loading'}
+                                        title="Use your current GPS location"
+                                    >
+                                        {geoStatus === 'loading' ? (
+                                            <span className="geo-spinner"></span>
+                                        ) : geoStatus === 'success' ? (
+                                            '✓'
+                                        ) : (
+                                            '📍'
+                                        )}
+                                        <span className="geo-btn-text">
+                                            {geoStatus === 'loading' ? 'Getting location...' : geoStatus === 'success' ? 'Location set' : 'Use my location'}
+                                        </span>
+                                    </button>
+                                </div>
+                                {geoStatus === 'success' && formData.latitude && (
+                                    <div className="geo-hint success">
+                                        Coordinates captured — if you're at the station, these are accurate
+                                    </div>
+                                )}
                             </div>
 
                             <div className="form-group">
@@ -470,15 +579,19 @@ export default function StationsPage() {
                                 )}
                             </div>
                             <div className="station-actions">
-                                <select
-                                    value={station.status}
-                                    onChange={(e) => handleStatusChange(station, e.target.value)}
-                                    className="status-select"
-                                >
-                                    <option value="OPEN">Open</option>
-                                    <option value="CLOSED">Closed</option>
-                                    <option value="MAINTENANCE">Maintenance</option>
-                                </select>
+                                <div className="status-select-wrap">
+                                    <CustomSelect
+                                        name={`status-${station.id}`}
+                                        value={station.status}
+                                        onChange={(e) => handleStatusChange(station, e.target.value)}
+                                        options={[
+                                            { label: 'Open', value: 'OPEN' },
+                                            { label: 'Closed', value: 'CLOSED' },
+                                            { label: 'Maintenance', value: 'MAINTENANCE' },
+                                        ]}
+                                        placeholder="Status"
+                                    />
+                                </div>
                                 <button className="btn-icon btn-edit" onClick={() => handleEdit(station)}>
                                     ✏️
                                 </button>

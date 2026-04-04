@@ -59,12 +59,12 @@ export default function LoginPage({ onLogin }) {
                         </div>
                         <div className="brand-stat-divider"></div>
                         <div className="brand-stat">
-                            <span className="brand-stat-val">9</span>
-                            <span className="brand-stat-lbl">Provinces</span>
+                            <span className="brand-stat-val">16</span>
+                            <span className="brand-stat-lbl">Countries</span>
                         </div>
                     </div>
                 </div>
-                <div className="brand-footer">South Africa Fuel Infrastructure</div>
+                <div className="brand-footer">West Africa Fuel Infrastructure</div>
             </div>
 
             {/* Right form panel */}
