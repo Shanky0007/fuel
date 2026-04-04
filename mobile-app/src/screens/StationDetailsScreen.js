@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 import { queueService, vehicleService } from '../services/api';
@@ -113,14 +115,16 @@ export default function StationDetailsScreen({ navigation, route }) {
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <StatusBar barStyle="light-content" backgroundColor={newTheme.colors.bg} />
         <ActivityIndicator size="large" color={newTheme.colors.amber} />
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={newTheme.colors.bg} />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -139,12 +143,10 @@ export default function StationDetailsScreen({ navigation, route }) {
           <View style={styles.stationHeader}>
             <View style={{ flex: 1 }}>
               <Text style={styles.stationName}>{station.name}</Text>
-              <Text style={styles.stationLocation}>{station.location}</Text>
-              {station.city && (
-                <Text style={styles.stationCity}>
-                  {station.city}, {station.region}
-                </Text>
-              )}
+              {station.location && <Text style={styles.stationLocation}>{station.location}</Text>}
+              <Text style={styles.stationCity}>
+                {[station.city, station.region, station.country].filter(Boolean).join(', ') || 'No location'}
+              </Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
               <View style={[
@@ -276,7 +278,7 @@ export default function StationDetailsScreen({ navigation, route }) {
 
         <View style={{ height: 24 }} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

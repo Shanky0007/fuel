@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 import { vehicleService, authService } from '../services/api';
@@ -125,14 +127,16 @@ export default function SettingsScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <StatusBar barStyle="light-content" backgroundColor={newTheme.colors.bg} />
         <ActivityIndicator size="large" color={newTheme.colors.amber} />
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={newTheme.colors.bg} />
       <View style={styles.header}>
         <Text style={styles.h1}>Profile</Text>
         <TouchableOpacity
@@ -243,7 +247,7 @@ export default function SettingsScreen({ navigation }) {
 
         <View style={{ height: 24 }} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

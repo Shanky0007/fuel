@@ -6,24 +6,23 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  ScrollView,
-  Dimensions,
   TextInput,
+  RefreshControl,
+  SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 import { stationService } from '../services/api';
 import { newTheme } from '../theme/newTheme';
-
-const { width } = Dimensions.get('window');
 
 export default function StationListScreen({ navigation }) {
   const { user } = useContext(AuthContext);
   const [stations, setStations] = useState([]);
   const [filteredStations, setFilteredStations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedStation, setSelectedStation] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState('map'); // 'map' or 'list'
+  const [sortBy, setSortBy] = useState('distance'); // distance, queue, name
 
   useEffect(() => {
     loadStations();
@@ -32,261 +31,213 @@ export default function StationListScreen({ navigation }) {
   }, [user]);
 
   useEffect(() => {
-    // Filter stations based on search query
-    if (searchQuery.trim() === '') {
-      setFilteredStations(stations);
-    } else {
-      const query = searchQuery.toLowerCase();
-      const filtered = stations.filter(station => 
-        station.name.toLowerCase().includes(query) ||
-        station.location?.toLowerCase().includes(query) ||
-        station.city?.toLowerCase().includes(query)
+    let list = [...stations];
+
+    // Filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(s =>
+        s.name.toLowerCase().includes(q) ||
+        s.location?.toLowerCase().includes(q) ||
+        s.city?.toLowerCase().includes(q) ||
+        s.region?.toLowerCase().includes(q)
       );
-      setFilteredStations(filtered);
-      if (filtered.length > 0 && !filtered.find(s => s.id === selectedStation?.id)) {
-        setSelectedStation(filtered[0]);
-      }
     }
-  }, [searchQuery, stations]);
+
+    // Sort
+    list.sort((a, b) => {
+      if (sortBy === 'distance') {
+        if (a.distance == null && b.distance == null) return 0;
+        if (a.distance == null) return 1;
+        if (b.distance == null) return -1;
+        return a.distance - b.distance;
+      }
+      if (sortBy === 'queue') return (a.currentQueueLength || 0) - (b.currentQueueLength || 0);
+      return a.name.localeCompare(b.name);
+    });
+
+    setFilteredStations(list);
+  }, [searchQuery, stations, sortBy]);
 
   const loadStations = async () => {
     try {
-      if (!user || !user.id) {
-        console.log('User not loaded yet');
-        return;
-      }
+      if (!user || !user.id) return;
       const data = await stationService.getByUserLocation(user.id);
       setStations(data);
-      setFilteredStations(data);
-      if (data.length > 0 && !selectedStation) {
-        setSelectedStation(data[0]);
-      }
     } catch (error) {
       console.error('Failed to load stations:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const handleStationPress = (station) => {
-    setSelectedStation(station);
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadStations();
   };
 
-  const handleJoinQueue = () => {
-    if (selectedStation) {
-      navigation.navigate('StationDetails', { station: selectedStation });
-    }
-  };
+  const openCount = stations.filter(s => s.status === 'OPEN').length;
 
-  const getQueueColor = (queueLength) => {
-    if (queueLength === 0) return newTheme.colors.green;
-    if (queueLength < 5) return newTheme.colors.green;
-    if (queueLength < 10) return newTheme.colors.amber;
-    return newTheme.colors.red;
+  const renderStation = ({ item: station }) => {
+    const isOpen = station.status === 'OPEN';
+    const queueLen = station.currentQueueLength || 0;
+    const queueColor = queueLen === 0 ? newTheme.colors.green : queueLen < 5 ? newTheme.colors.green : queueLen < 10 ? newTheme.colors.amber : newTheme.colors.red;
+
+    return (
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => navigation.navigate('StationDetails', { station })}
+        activeOpacity={0.7}
+      >
+        {/* Top row: name + status */}
+        <View style={styles.cardTop}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cardName}>{station.name}</Text>
+            <Text style={styles.cardAddr} numberOfLines={1}>
+              {[station.location, station.city, station.region].filter(Boolean).join(' · ') || 'No address'}
+            </Text>
+          </View>
+          <View style={[styles.statusPill, isOpen ? styles.statusOpen : styles.statusClosed]}>
+            {isOpen && <View style={styles.statusDot} />}
+            <Text style={[styles.statusText, { color: isOpen ? newTheme.colors.green : newTheme.colors.red }]}>
+              {isOpen ? 'Open' : 'Closed'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Stats row */}
+        <View style={styles.statsRow}>
+          <View style={styles.statBox}>
+            <Text style={[styles.statVal, { color: queueColor }]}>{queueLen}</Text>
+            <Text style={styles.statLabel}>In Queue</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statBox}>
+            <Text style={styles.statVal}>{station.totalPumps || 0}</Text>
+            <Text style={styles.statLabel}>Pumps</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statBox}>
+            <Text style={styles.statVal}>~{queueLen * 2}m</Text>
+            <Text style={styles.statLabel}>Wait</Text>
+          </View>
+          {station.distance != null && (
+            <>
+              <View style={styles.statDivider} />
+              <View style={styles.statBox}>
+                <Text style={styles.statVal}>{station.distance.toFixed(1)}</Text>
+                <Text style={styles.statLabel}>km</Text>
+              </View>
+            </>
+          )}
+        </View>
+
+        {/* Fuel chips */}
+        {station.inventory?.length > 0 && (
+          <View style={styles.fuelRow}>
+            {station.inventory.map(inv => (
+              <View key={inv.id} style={styles.fuelChip}>
+                <Text style={styles.fuelChipText}>
+                  {inv.fuelType?.name === 'Petrol' ? '🔴' : inv.fuelType?.name === 'Diesel' ? '🟡' : inv.fuelType?.name === 'EV' ? '⚡' : '🔵'}
+                  {' '}{inv.fuelType?.name}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Quick action */}
+        {isOpen && (
+          <View style={styles.cardAction}>
+            <Text style={styles.cardActionText}>Get Ticket →</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
   };
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={newTheme.colors.amber} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Map View */}
-      <View style={styles.mapContainer}>
-        <View style={styles.mapBg} />
-        
-        {/* Map Grid */}
-        <View style={styles.mapGrid} />
-
-        {/* User Location Dot */}
-        <View style={styles.userDot} />
-
-        {/* Station Pins */}
-        {filteredStations.slice(0, 6).map((station, index) => {
-          const positions = [
-            { left: '32%', top: '44%' },
-            { left: '62%', top: '52%' },
-            { left: '80%', top: '30%' },
-            { left: '18%', top: '65%' },
-            { left: '45%', top: '70%' },
-            { left: '70%', top: '60%' },
-          ];
-          const pos = positions[index] || { left: '50%', top: '50%' };
-          const isSelected = selectedStation?.id === station.id;
-          const isOpen = station.status === 'OPEN';
-
-          return (
-            <TouchableOpacity
-              key={station.id}
-              style={[styles.stationPin, { left: pos.left, top: pos.top }]}
-              onPress={() => handleStationPress(station)}
-              activeOpacity={0.7}
-            >
-              <View style={[
-                styles.pinBubble,
-                isSelected && styles.pinBubbleSelected,
-                !isOpen && styles.pinBubbleClosed
-              ]}>
-                <View style={[
-                  styles.pinDot,
-                  isSelected ? styles.pinDotSelected : (isOpen ? styles.pinDotOpen : styles.pinDotClosed)
-                ]} />
-                <View>
-                  <Text style={styles.pinName}>{station.name}</Text>
-                  <Text style={styles.pinQueue}>
-                    {isOpen ? `${station.currentQueueLength || 0} in queue` : 'Closed'}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.pinTail} />
-            </TouchableOpacity>
-          );
-        })}
-
-        {/* Gradients */}
-        <View style={styles.mapGradientTop} />
-        <View style={styles.mapGradient} />
-
-        {/* Search Bar */}
-        <View style={styles.mapSearch}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search for a station..."
-            placeholderTextColor={newTheme.colors.text3}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Text style={styles.clearIcon}>✕</Text>
-            </TouchableOpacity>
-          )}
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={newTheme.colors.bg} />
+      {/* Header */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>Stations</Text>
+          <Text style={styles.headerSub}>
+            {user?.city ? `${user.city}, ${user.region}` : user?.region || 'Your area'} · {openCount} open
+          </Text>
+        </View>
+        <View style={styles.countBadge}>
+          <Text style={styles.countText}>{stations.length}</Text>
         </View>
       </View>
 
-      {/* Station Info Sheet */}
-      <ScrollView style={styles.stationSheet} showsVerticalScrollIndicator={false}>
-        {selectedStation ? (
-          <>
-            <View style={styles.stationSheetHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.stationName}>{selectedStation.name}</Text>
-                <View style={styles.stationMeta}>
-                  <View style={[
-                    styles.pill,
-                    selectedStation.status === 'OPEN' ? styles.pillGreen : styles.pillRed
-                  ]}>
-                    {selectedStation.status === 'OPEN' && <View style={styles.liveDot} />}
-                    <Text style={[
-                      styles.pillText,
-                      { color: selectedStation.status === 'OPEN' ? newTheme.colors.green : newTheme.colors.red }
-                    ]}>
-                      {selectedStation.status === 'OPEN' ? 'Open' : 'Closed'}
-                    </Text>
-                  </View>
-                  {selectedStation.distance && (
-                    <Text style={styles.distanceText}>
-                      {selectedStation.distance.toFixed(1)} km
-                    </Text>
-                  )}
-                </View>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={styles.queueNumber}>{selectedStation.currentQueueLength || 0}</Text>
-                <Text style={styles.queueLabel}>in queue</Text>
-              </View>
-            </View>
-
-            {/* Fuel Types */}
-            <View style={styles.fuelChips}>
-              {selectedStation.inventory?.map((inv) => (
-                <View key={inv.id} style={styles.fuelChip}>
-                  <Text style={styles.fuelChipText}>
-                    {inv.fuelType?.name === 'Petrol' && '🔴'}
-                    {inv.fuelType?.name === 'Diesel' && '🟡'}
-                    {inv.fuelType?.name === 'EV' && '⚡'}
-                    {inv.fuelType?.name === 'CNG' && '🔵'}
-                    {' '}{inv.fuelType?.name}
-                  </Text>
-                </View>
-              ))}
-            </View>
-
-            {/* Actions */}
-            <View style={styles.actionButtons}>
-              <TouchableOpacity
-                style={styles.btnPrimary}
-                onPress={handleJoinQueue}
-                disabled={selectedStation.status !== 'OPEN'}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.btnPrimaryText}>
-                  {selectedStation.status === 'OPEN' ? 'Get Ticket →' : 'Station Closed'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Nearby Stations */}
-            <View style={styles.divider} />
-            <Text style={styles.sectionLabel}>NEARBY STATIONS</Text>
-            <View style={styles.nearbyCard}>
-              {filteredStations.filter(s => s.id !== selectedStation.id).slice(0, 3).map((station) => (
-                <TouchableOpacity
-                  key={station.id}
-                  style={styles.stationListItem}
-                  onPress={() => handleStationPress(station)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[
-                    styles.stationIcon,
-                    station.status === 'OPEN' ? styles.stationIconOpen : styles.stationIconClosed
-                  ]}>
-                    <Text style={{ fontSize: 20 }}>
-                      {station.status === 'OPEN' ? '⚡' : '⛽'}
-                    </Text>
-                  </View>
-                  <View style={styles.stationListInfo}>
-                    <Text style={styles.stationListName}>{station.name}</Text>
-                    <Text style={styles.stationListAddr} numberOfLines={1}>
-                      {station.location}
-                    </Text>
-                  </View>
-                  <View style={styles.stationListRight}>
-                    {station.distance && (
-                      <View style={styles.distChip}>
-                        <Text style={styles.distChipText}>{station.distance.toFixed(1)} km</Text>
-                      </View>
-                    )}
-                    <View style={[
-                      styles.pill,
-                      station.currentQueueLength > 5 ? styles.pillAmber : styles.pillGreen,
-                      { marginTop: 4 }
-                    ]}>
-                      <Text style={[
-                        styles.pillText,
-                        { color: station.currentQueueLength > 5 ? newTheme.colors.amber : newTheme.colors.green }
-                      ]}>
-                        {station.currentQueueLength || 0} in queue
-                      </Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </>
-        ) : (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No stations available in your area</Text>
-          </View>
+      {/* Search */}
+      <View style={styles.searchBar}>
+        <Text style={styles.searchIcon}>🔍</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search stations..."
+          placeholderTextColor={newTheme.colors.text3}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Text style={styles.clearBtn}>✕</Text>
+          </TouchableOpacity>
         )}
-        <View style={{ height: 24 }} />
-      </ScrollView>
-    </View>
+      </View>
+
+      {/* Sort chips */}
+      <View style={styles.sortRow}>
+        {[
+          { key: 'distance', label: 'Nearest' },
+          { key: 'queue', label: 'Shortest Queue' },
+          { key: 'name', label: 'A-Z' },
+        ].map(s => (
+          <TouchableOpacity
+            key={s.key}
+            style={[styles.sortChip, sortBy === s.key && styles.sortChipActive]}
+            onPress={() => setSortBy(s.key)}
+          >
+            <Text style={[styles.sortChipText, sortBy === s.key && styles.sortChipTextActive]}>
+              {s.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Station list */}
+      <FlatList
+        data={filteredStations}
+        keyExtractor={item => item.id}
+        renderItem={renderStation}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[newTheme.colors.amber]} tintColor={newTheme.colors.amber} />
+        }
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={{ fontSize: 48, marginBottom: 12 }}>⛽</Text>
+            <Text style={styles.emptyTitle}>No stations found</Text>
+            <Text style={styles.emptyText}>
+              {searchQuery ? 'Try a different search' : 'No stations available in your area yet'}
+            </Text>
+          </View>
+        }
+      />
+    </SafeAreaView>
   );
 }
 
@@ -295,314 +246,231 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: newTheme.colors.bg,
   },
-  mapContainer: {
-    height: 320,
-    backgroundColor: newTheme.colors.bg2,
-    position: 'relative',
-    overflow: 'hidden',
+
+  // Header
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
   },
-  mapBg: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: newTheme.colors.bg2,
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: newTheme.colors.text,
+    letterSpacing: -0.5,
   },
-  mapGrid: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+  headerSub: {
+    fontSize: 13,
+    color: newTheme.colors.text2,
+    marginTop: 2,
   },
-  userDot: {
-    position: 'absolute',
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: newTheme.colors.blue,
-    borderWidth: 3,
-    borderColor: newTheme.colors.bg,
-    top: '54%',
-    left: '48%',
-  },
-  stationPin: {
-    position: 'absolute',
-  },
-  pinBubble: {
-    backgroundColor: newTheme.colors.bg2,
-    borderWidth: 1.5,
-    borderColor: newTheme.colors.border,
-    borderRadius: 12,
+  countBadge: {
+    backgroundColor: newTheme.colors.amberGlow,
+    borderRadius: 10,
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    paddingHorizontal: 10,
+  },
+  countText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: newTheme.colors.amber,
+  },
+
+  // Search
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-  },
-  pinBubbleSelected: {
-    borderColor: newTheme.colors.amber,
-    backgroundColor: newTheme.colors.amberGlow,
-  },
-  pinBubbleClosed: {
-    borderColor: newTheme.colors.red,
-    opacity: 0.7,
-  },
-  pinDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  pinDotOpen: {
-    backgroundColor: newTheme.colors.green,
-  },
-  pinDotClosed: {
-    backgroundColor: newTheme.colors.red,
-  },
-  pinDotSelected: {
-    backgroundColor: newTheme.colors.amber,
-  },
-  pinName: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: newTheme.colors.text,
-  },
-  pinQueue: {
-    fontSize: 10,
-    color: newTheme.colors.text2,
-  },
-  pinTail: {
-    width: 2,
-    height: 10,
-    backgroundColor: newTheme.colors.border,
-    marginLeft: 'auto',
-    marginRight: 'auto',
-  },
-  mapGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 120,
-    backgroundColor: 'transparent',
-  },
-  mapGradientTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 60,
-    backgroundColor: 'transparent',
-  },
-  mapSearch: {
-    position: 'absolute',
-    top: 16,
-    left: 16,
-    right: 16,
-    backgroundColor: 'rgba(19,21,26,0.92)',
+    backgroundColor: newTheme.colors.bg2,
     borderWidth: 1,
     borderColor: newTheme.colors.border,
     borderRadius: 14,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
+    marginHorizontal: 20,
+    paddingHorizontal: 14,
+    height: 48,
     gap: 10,
   },
   searchIcon: {
     fontSize: 16,
-    color: newTheme.colors.text3,
   },
   searchInput: {
+    flex: 1,
     fontSize: 14,
     color: newTheme.colors.text,
-    flex: 1,
-    outlineStyle: 'none',
   },
-  clearIcon: {
-    fontSize: 18,
+  clearBtn: {
+    fontSize: 16,
     color: newTheme.colors.text3,
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
   },
-  stationSheet: {
-    flex: 1,
-    paddingTop: 20,
-  },
-  stationSheetHeader: {
+
+  // Sort
+  sortRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: 16,
     paddingHorizontal: 20,
-  },
-  stationName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: newTheme.colors.text,
-    letterSpacing: -0.3,
-    marginBottom: 4,
-  },
-  stationMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    paddingVertical: 12,
     gap: 8,
   },
-  pill: {
+  sortChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: newTheme.colors.bg2,
+    borderWidth: 1,
+    borderColor: newTheme.colors.border,
+  },
+  sortChipActive: {
+    backgroundColor: newTheme.colors.amberGlow,
+    borderColor: newTheme.colors.amber,
+  },
+  sortChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: newTheme.colors.text2,
+  },
+  sortChipTextActive: {
+    color: newTheme.colors.amber,
+  },
+
+  // List
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    gap: 12,
+  },
+
+  // Card
+  card: {
+    backgroundColor: newTheme.colors.bg2,
+    borderWidth: 1,
+    borderColor: newTheme.colors.border,
+    borderRadius: 18,
+    padding: 16,
+  },
+  cardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 14,
+  },
+  cardName: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: newTheme.colors.text,
+    letterSpacing: -0.2,
+    marginBottom: 3,
+  },
+  cardAddr: {
+    fontSize: 12,
+    color: newTheme.colors.text3,
+  },
+
+  // Status pill
+  statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 20,
     gap: 5,
+    marginLeft: 10,
+    flexShrink: 0,
   },
-  pillGreen: {
+  statusOpen: {
     backgroundColor: newTheme.colors.greenGlow,
   },
-  pillAmber: {
-    backgroundColor: newTheme.colors.amberGlow,
-  },
-  pillRed: {
+  statusClosed: {
     backgroundColor: 'rgba(248,113,113,0.12)',
   },
-  pillText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  liveDot: {
+  statusDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: newTheme.colors.green,
   },
-  distanceText: {
-    fontSize: 12,
-    color: newTheme.colors.text3,
-  },
-  queueNumber: {
-    fontSize: 22,
+  statusText: {
+    fontSize: 11,
     fontWeight: '700',
-    color: newTheme.colors.amber,
   },
-  queueLabel: {
+
+  // Stats row
+  statsRow: {
+    flexDirection: 'row',
+    backgroundColor: newTheme.colors.bg3,
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 12,
+  },
+  statBox: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statVal: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: newTheme.colors.text,
+    marginBottom: 1,
+  },
+  statLabel: {
     fontSize: 10,
     color: newTheme.colors.text3,
   },
-  fuelChips: {
+  statDivider: {
+    width: 1,
+    backgroundColor: newTheme.colors.border,
+    marginVertical: 2,
+  },
+
+  // Fuel chips
+  fuelRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
-    marginBottom: 16,
-    paddingHorizontal: 20,
+    marginBottom: 12,
   },
   fuelChip: {
     backgroundColor: newTheme.colors.bg3,
     borderWidth: 1,
     borderColor: newTheme.colors.border,
     borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
   },
   fuelChipText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
     color: newTheme.colors.text2,
   },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  btnPrimary: {
-    flex: 1,
-    height: 54,
+
+  // Card action
+  cardAction: {
     backgroundColor: newTheme.colors.amber,
-    borderRadius: 14,
+    borderRadius: 12,
+    paddingVertical: 12,
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  btnPrimaryText: {
-    fontSize: 16,
+  cardActionText: {
+    fontSize: 14,
     fontWeight: '700',
     color: newTheme.colors.bg,
     letterSpacing: -0.2,
   },
-  divider: {
-    height: 1,
-    backgroundColor: newTheme.colors.border,
-    marginHorizontal: 20,
-    marginVertical: 16,
-  },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: newTheme.colors.text3,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    paddingHorizontal: 20,
-    marginBottom: 8,
-  },
-  nearbyCard: {
-    backgroundColor: newTheme.colors.bg2,
-    borderWidth: 1,
-    borderColor: newTheme.colors.border,
-    borderRadius: 16,
-    marginHorizontal: 20,
-    overflow: 'hidden',
-  },
-  stationListItem: {
-    flexDirection: 'row',
+
+  // Empty
+  empty: {
+    paddingVertical: 60,
     alignItems: 'center',
-    gap: 14,
-    padding: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: newTheme.colors.border,
   },
-  stationIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stationIconOpen: {
-    backgroundColor: newTheme.colors.greenGlow,
-  },
-  stationIconClosed: {
-    backgroundColor: 'rgba(248,113,113,0.1)',
-  },
-  stationListInfo: {
-    flex: 1,
-  },
-  stationListName: {
-    fontSize: 14,
-    fontWeight: '600',
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
     color: newTheme.colors.text,
-    marginBottom: 2,
-  },
-  stationListAddr: {
-    fontSize: 12,
-    color: newTheme.colors.text3,
-  },
-  stationListRight: {
-    alignItems: 'flex-end',
-  },
-  distChip: {
-    backgroundColor: newTheme.colors.bg3,
-    borderRadius: 6,
-    paddingVertical: 2,
-    paddingHorizontal: 7,
-  },
-  distChipText: {
-    fontSize: 11,
-    color: newTheme.colors.text3,
-  },
-  emptyState: {
-    padding: 40,
-    alignItems: 'center',
+    marginBottom: 4,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 13,
     color: newTheme.colors.text3,
   },
 });

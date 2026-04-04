@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { useFocusEffect } from '@react-navigation/native';
@@ -103,15 +105,17 @@ export default function TicketScreen({ route, navigation }) {
 
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <StatusBar barStyle="light-content" backgroundColor={newTheme.colors.bg} />
         <ActivityIndicator size="large" color={newTheme.colors.amber} />
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (!queueData || !queueData.ticket) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <StatusBar barStyle="light-content" backgroundColor={newTheme.colors.bg} />
         <Text style={{ fontSize: 60, marginBottom: 20 }}>🎫</Text>
         <Text style={[styles.h2, { textAlign: 'center', marginBottom: 10 }]}>No Active Ticket</Text>
         <Text style={[styles.body, { textAlign: 'center', marginBottom: 30 }]}>
@@ -123,14 +127,15 @@ export default function TicketScreen({ route, navigation }) {
         >
           <Text style={styles.primaryBtnText}>Browse Stations</Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
   const { ticket, position } = queueData;
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={newTheme.colors.bg} />
       <View style={styles.header}>
         <Text style={styles.h1}>My Ticket</Text>
       </View>
@@ -197,7 +202,7 @@ export default function TicketScreen({ route, navigation }) {
         </View>
 
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
