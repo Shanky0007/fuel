@@ -13,15 +13,29 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Custom red marker icon
+const greenIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41],
+});
+
 const redIcon = new L.Icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
+  iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41],
 });
+
+const orangeIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41],
+});
+
+function getStationIcon(station) {
+  if (station.status === 'OPEN') return greenIcon;
+  if (station.status === 'MAINTENANCE') return orangeIcon;
+  return redIcon;
+}
 
 export default function StationsMapPage() {
   const [stations, setStations] = useState([]);
@@ -37,49 +51,29 @@ export default function StationsMapPage() {
   const fetchStations = async () => {
     try {
       const data = await stationService.getAll();
-      console.log('Fetched stations:', data);
-      
-      // Filter stations with valid coordinates
       const validStations = data.filter(s => {
         const lat = parseFloat(s.latitude);
         const lng = parseFloat(s.longitude);
         return !isNaN(lat) && !isNaN(lng);
       });
-      
-      console.log('Stations with coordinates:', validStations);
-      
-      // Calculate center and zoom to fit all stations
+
       if (validStations.length > 0) {
         const lats = validStations.map(s => parseFloat(s.latitude));
         const lngs = validStations.map(s => parseFloat(s.longitude));
-        
-        const minLat = Math.min(...lats);
-        const maxLat = Math.max(...lats);
-        const minLng = Math.min(...lngs);
-        const maxLng = Math.max(...lngs);
-        
-        const centerLat = (minLat + maxLat) / 2;
-        const centerLng = (minLng + maxLng) / 2;
-        
+        const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+        const centerLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
         setMapCenter([centerLat, centerLng]);
-        
-        // Calculate zoom level based on bounds
-        const latDiff = maxLat - minLat;
-        const lngDiff = maxLng - minLng;
-        const maxDiff = Math.max(latDiff, lngDiff);
-        
-        // Adjust zoom based on spread of stations
-        let zoom = 6;
+
+        const maxDiff = Math.max(Math.max(...lats) - Math.min(...lats), Math.max(...lngs) - Math.min(...lngs));
+        let zoom = 8;
         if (maxDiff > 30) zoom = 4;
         else if (maxDiff > 15) zoom = 5;
         else if (maxDiff > 5) zoom = 6;
         else if (maxDiff > 2) zoom = 7;
-        else zoom = 8;
-        
         setMapZoom(zoom);
-        setMapKey(prev => prev + 1); // Force map to re-render with new center/zoom
+        setMapKey(prev => prev + 1);
       }
-      
+
       setStations(data);
     } catch (error) {
       console.error('Error fetching stations:', error);
@@ -88,78 +82,93 @@ export default function StationsMapPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="map-page">
-        <div className="map-header">
-          <h1>🗺️ Stations Map</h1>
-          <p>Loading stations...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const validStations = stations.filter(s => {
-    const lat = parseFloat(s.latitude);
-    const lng = parseFloat(s.longitude);
-    return !isNaN(lat) && !isNaN(lng);
-  });
+  const validStations = stations.filter(s => !isNaN(parseFloat(s.latitude)) && !isNaN(parseFloat(s.longitude)));
+  const missingCoords = stations.length - validStations.length;
+  const openCount = stations.filter(s => s.status === 'OPEN').length;
+  const closedCount = stations.filter(s => s.status === 'CLOSED').length;
 
   return (
     <div className="map-page">
-      <div className="map-header">
-        <h1>🗺️ Stations Map</h1>
-        <p className="station-count">
-          Showing {validStations.length} station{validStations.length !== 1 ? 's' : ''} with coordinates
-          {stations.length > validStations.length && ` (${stations.length - validStations.length} without coordinates)`}
-        </p>
-      </div>
-
-      <div className="map-container">
-        <MapContainer
-          key={mapKey}
-          center={mapCenter}
-          zoom={mapZoom}
-          style={{ height: '100%', width: '100%' }}
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          
-          {validStations.map((station) => {
-            const lat = parseFloat(station.latitude);
-            const lng = parseFloat(station.longitude);
-            
-            return (
-              <Marker
-                key={station.id}
-                position={[lat, lng]}
-                icon={redIcon}
-              >
-                <Popup>
-                  <div className="popup-content">
-                    <h3>{station.name}</h3>
-                    <p><strong>Location:</strong> {station.location}</p>
-                    <p><strong>City:</strong> {station.city || 'N/A'}</p>
-                    <p><strong>Region:</strong> {station.region || 'N/A'}</p>
-                    <p><strong>Country:</strong> {station.country || 'N/A'}</p>
-                    <p><strong>Status:</strong> <span className={`status-${station.status.toLowerCase()}`}>{station.status}</span></p>
-                    <p><strong>Pumps:</strong> {station.totalPumps}</p>
-                    <p><strong>Coordinates:</strong> {lat.toFixed(6)}, {lng.toFixed(6)}</p>
-                  </div>
-                </Popup>
-              </Marker>
-            );
-          })}
-        </MapContainer>
-      </div>
-
-      {stations.filter(s => !s.latitude || !s.longitude).length > 0 && (
-        <div className="warning-banner">
-          ⚠️ {stations.filter(s => !s.latitude || !s.longitude).length} station(s) missing coordinates
+      {/* Stats bar */}
+      <div className="map-stats">
+        <div className="map-stat">
+          <span className="map-stat-dot open"></span>
+          <span className="map-stat-text">{openCount} Open</span>
         </div>
-      )}
+        <div className="map-stat">
+          <span className="map-stat-dot closed"></span>
+          <span className="map-stat-text">{closedCount} Closed</span>
+        </div>
+        <div className="map-stat">
+          <span className="map-stat-text muted">{validStations.length} on map</span>
+        </div>
+        {missingCoords > 0 && (
+          <div className="map-stat">
+            <span className="map-stat-text warning">{missingCoords} missing coords</span>
+          </div>
+        )}
+      </div>
+
+      {/* Map */}
+      <div className="map-wrapper">
+        {loading ? (
+          <div className="map-loading">Loading map...</div>
+        ) : (
+          <MapContainer
+            key={mapKey}
+            center={mapCenter}
+            zoom={mapZoom}
+            style={{ height: '100%', width: '100%' }}
+          >
+            <TileLayer
+              attribution='&copy; OpenStreetMap'
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            />
+            {validStations.map((station) => {
+              const lat = parseFloat(station.latitude);
+              const lng = parseFloat(station.longitude);
+              return (
+                <Marker key={station.id} position={[lat, lng]} icon={getStationIcon(station)}>
+                  <Popup>
+                    <div className="popup-content">
+                      <h3>{station.name}</h3>
+                      <p><strong>Status:</strong> <span className={`status-${station.status.toLowerCase()}`}>{station.status}</span></p>
+                      {station.city && <p><strong>City:</strong> {station.city}</p>}
+                      {station.region && <p><strong>Region:</strong> {station.region}</p>}
+                      <p><strong>Pumps:</strong> {station.totalPumps}</p>
+                      {station.inventory?.length > 0 && (
+                        <p><strong>Fuel:</strong> {station.inventory.map(i => i.fuelType?.name).filter(Boolean).join(', ')}</p>
+                      )}
+                    </div>
+                  </Popup>
+                </Marker>
+              );
+            })}
+          </MapContainer>
+        )}
+      </div>
+
+      {/* Station list sidebar */}
+      <div className="map-sidebar">
+        <div className="map-sidebar-header">
+          <span className="map-sidebar-title">Stations</span>
+          <span className="map-sidebar-count">{stations.length}</span>
+        </div>
+        <div className="map-sidebar-list">
+          {stations.map(station => (
+            <div key={station.id} className="map-station-item">
+              <span className={`map-station-dot ${station.status === 'OPEN' ? 'open' : 'closed'}`}></span>
+              <div className="map-station-info">
+                <div className="map-station-name">{station.name}</div>
+                <div className="map-station-loc">
+                  {[station.city, station.region].filter(Boolean).join(', ') || 'No location'}
+                </div>
+              </div>
+              <span className="map-station-pumps">{station.totalPumps}p</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

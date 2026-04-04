@@ -3,7 +3,7 @@ import './DashboardPage.css';
 
 export default function SettingsPage({ user, onLogout }) {
     return (
-        <div style={{ padding: '2rem', maxWidth: '600px' }}>
+        <div style={{ maxWidth: '600px' }}>
             <h2 style={{ color: 'var(--text)', marginBottom: '2rem', fontSize: '1.5rem', fontWeight: 700 }}>
                 Settings
             </h2>

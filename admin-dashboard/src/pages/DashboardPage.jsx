@@ -199,6 +199,7 @@ export default function DashboardPage({ user, onLogout }) {
           <div className="card-title">All Stations</div>
           <div className="card-tag">{stations.length} TOTAL</div>
         </div>
+        <div className="table-scroll">
         <table className="data-table">
           <thead>
             <tr>
@@ -253,6 +254,7 @@ export default function DashboardPage({ user, onLogout }) {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

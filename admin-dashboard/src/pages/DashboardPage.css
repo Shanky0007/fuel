@@ -133,3 +133,23 @@
   font-family: var(--font-mono);
   margin-top: 2px;
 }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .stations-map {
+    height: 160px;
+    margin: 0 12px 12px;
+  }
+
+  .stat-cell {
+    padding: 10px 8px;
+  }
+
+  .stat-val {
+    font-size: 14px;
+  }
+
+  .activity-feed {
+    padding: 12px;
+  }
+}
