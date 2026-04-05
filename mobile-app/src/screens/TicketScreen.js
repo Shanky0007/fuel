@@ -131,7 +131,10 @@ export default function TicketScreen({ route, navigation }) {
     );
   }
 
-  const { ticket, position } = queueData;
+  const { ticket, position, queue } = queueData;
+  const station = queue?.station;
+  const vehicle = queue?.vehicle;
+  const isServing = queue?.status === 'SERVING';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -141,13 +144,22 @@ export default function TicketScreen({ route, navigation }) {
       </View>
 
       <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-        
+
+        {/* Status banner */}
+        <View style={[styles.statusBanner, isServing ? styles.statusServing : styles.statusWaiting]}>
+          <View style={[styles.statusDot, { backgroundColor: isServing ? newTheme.colors.green : newTheme.colors.amber }]} />
+          <Text style={[styles.statusBannerText, { color: isServing ? newTheme.colors.green : newTheme.colors.amber }]}>
+            {isServing ? 'You are being served' : 'Waiting in queue'}
+          </Text>
+        </View>
+
         <View style={styles.ticketCard}>
+          {/* QR + Code */}
           <View style={styles.qrSection}>
             <View style={styles.qrContainer}>
               <QRCode
                 value={ticket?.qrCodeData || 'No data'}
-                size={220}
+                size={200}
                 color={newTheme.colors.bg2}
                 backgroundColor={newTheme.colors.white}
               />
@@ -161,7 +173,7 @@ export default function TicketScreen({ route, navigation }) {
                 </Text>
               </View>
               <Text style={styles.verificationHint}>
-                Show this code if QR scanning doesn't work
+                Show this to the operator
               </Text>
             </View>
           </View>
@@ -172,28 +184,57 @@ export default function TicketScreen({ route, navigation }) {
             <View style={styles.dividerDot} />
           </View>
 
+          {/* Position */}
           <View style={styles.infoSection}>
             <View style={styles.positionBadge}>
               <Text style={styles.positionLabel}>Position in Queue</Text>
               <Text style={styles.positionValue}>#{position || '?'}</Text>
             </View>
 
-            {ticketInfo && (
-              <View style={styles.detailsContainer}>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Station:</Text>
-                  <Text style={styles.detailValue}>{ticketInfo.stationName}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Vehicle:</Text>
-                  <Text style={styles.detailValue}>{ticketInfo.vehicleType}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Fuel Type:</Text>
-                  <Text style={styles.detailValue}>{ticketInfo.fuelType}</Text>
+            {/* Station details */}
+            {station && (
+              <View style={styles.stationBox}>
+                <Text style={styles.stationBoxIcon}>⛽</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.stationBoxName}>{station.name}</Text>
+                  <Text style={styles.stationBoxLoc}>
+                    {[station.location, station.city, station.region].filter(Boolean).join(' · ')}
+                  </Text>
                 </View>
               </View>
             )}
+
+            {/* Details grid */}
+            <View style={styles.detailsContainer}>
+              {vehicle && (
+                <>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Plate</Text>
+                    <Text style={styles.detailPlate}>{vehicle.registrationNumber || vehicle.licensePlate}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Vehicle</Text>
+                    <Text style={styles.detailValue}>
+                      {vehicle.type === 'Car' ? '🚗' : vehicle.type === 'Motorcycle' ? '🏍' : vehicle.type === 'Truck' ? '🚛' : '🚌'} {vehicle.type}
+                    </Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Fuel</Text>
+                    <Text style={styles.detailValue}>{vehicle.fuelType?.name || vehicle.fuelType || '—'}</Text>
+                  </View>
+                </>
+              )}
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Joined</Text>
+                <Text style={styles.detailValue}>
+                  {queue?.joinedAt ? new Date(queue.joinedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Est. Wait</Text>
+                <Text style={styles.detailValue}>~{(position || 0) * 2} min</Text>
+              </View>
+            </View>
           </View>
 
           <TouchableOpacity style={styles.leaveBtn} onPress={handleLeaveQueue}>
@@ -334,18 +375,75 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
   },
+  statusBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  statusServing: {
+    backgroundColor: newTheme.colors.greenGlow,
+  },
+  statusWaiting: {
+    backgroundColor: newTheme.colors.amberGlow,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusBannerText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  stationBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: newTheme.colors.bg3,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: newTheme.colors.border,
+  },
+  stationBoxIcon: {
+    fontSize: 28,
+  },
+  stationBoxName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: newTheme.colors.text,
+    marginBottom: 2,
+  },
+  stationBoxLoc: {
+    fontSize: 12,
+    color: newTheme.colors.text3,
+  },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   detailLabel: {
-    color: newTheme.colors.text2,
-    fontSize: newTheme.fontSize.base,
+    color: newTheme.colors.text3,
+    fontSize: 12,
+    fontWeight: '500',
   },
   detailValue: {
     color: newTheme.colors.text,
-    fontSize: newTheme.fontSize.lg,
-    fontWeight: newTheme.fontWeight.medium,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  detailPlate: {
+    color: newTheme.colors.amber,
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 2,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
   leaveBtn: {
     width: '100%',

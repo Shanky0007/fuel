@@ -48,7 +48,7 @@ class OperatorService {
               fuelType: true,
             },
           },
-          vehicle: true,
+          vehicle: { include: { fuelType: true } },
           station: {
             select: {
               id: true,

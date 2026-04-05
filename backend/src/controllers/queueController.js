@@ -214,7 +214,7 @@ const getMyQueueStatus = async (req, res) => {
             },
             include: {
                 station: true,
-                vehicle: true,
+                vehicle: { include: { fuelType: true } },
                 ticket: true,
             },
         });

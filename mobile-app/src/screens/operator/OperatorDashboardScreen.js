@@ -84,14 +84,18 @@ export default function OperatorDashboardScreen() {
             }, 8000);
             loadQueue();
         } catch (error) {
+            const errData = error.response?.data || {};
             setScanResult({
                 success: false,
-                message: error.response?.data?.error || 'Verification failed'
+                message: errData.error || 'Verification failed',
+                code: errData.code,
+                ticketStation: errData.ticketStation,
+                ticketCity: errData.ticketCity,
             });
             setTimeout(() => {
                 setScanResult(null);
                 hasScannedRef.current = false;
-            }, 5000);
+            }, 8000);
         } finally {
             setLoading(false);
         }
@@ -111,11 +115,15 @@ export default function OperatorDashboardScreen() {
             setTimeout(() => setScanResult(null), 8000);
             loadQueue();
         } catch (error) {
+            const errData = error.response?.data || {};
             setScanResult({
                 success: false,
-                message: error.response?.data?.error || 'Invalid verification code'
+                message: errData.error || 'Invalid verification code',
+                code: errData.code,
+                ticketStation: errData.ticketStation,
+                ticketCity: errData.ticketCity,
             });
-            setTimeout(() => setScanResult(null), 5000);
+            setTimeout(() => setScanResult(null), 8000);
         } finally {
             setLoading(false);
         }
@@ -406,6 +414,20 @@ export default function OperatorDashboardScreen() {
                                         </View>
                                     )}
                                 </>
+                            ) : scanResult.code === 'WRONG_STATION' ? (
+                                <>
+                                    <Text style={styles.resultTitleError}>🚫 Wrong Station</Text>
+                                    <View style={styles.wrongStationBox}>
+                                        <Text style={styles.wrongStationLabel}>This ticket belongs to</Text>
+                                        <Text style={styles.wrongStationName}>⛽ {scanResult.ticketStation}</Text>
+                                        {scanResult.ticketCity && (
+                                            <Text style={styles.wrongStationCity}>{scanResult.ticketCity}</Text>
+                                        )}
+                                    </View>
+                                    <Text style={styles.resultTextError}>
+                                        You can only verify tickets for your assigned station.
+                                    </Text>
+                                </>
                             ) : (
                                 <>
                                     <Text style={styles.resultTitleError}>❌ Verification Failed</Text>
@@ -461,14 +483,24 @@ export default function OperatorDashboardScreen() {
                                     </View>
                                 </View>
 
+                                {/* License Plate */}
+                                <View style={styles.plateRow}>
+                                    <Text style={styles.plateText}>
+                                        {item.vehicle?.registrationNumber || item.vehicle?.licensePlate || '—'}
+                                    </Text>
+                                    <Text style={styles.plateVehicleType}>
+                                        {item.vehicle?.type === 'Car' ? '🚗' : item.vehicle?.type === 'Motorcycle' ? '🏍' : item.vehicle?.type === 'Truck' ? '🚛' : '🚌'} {item.vehicle?.type}
+                                    </Text>
+                                </View>
+
                                 <View style={styles.queueDetails}>
                                     <View style={styles.infoRow}>
                                         <Text style={styles.infoLabel}>Customer:</Text>
                                         <Text style={styles.infoValue}>{item.user?.name || 'N/A'}</Text>
                                     </View>
                                     <View style={styles.infoRow}>
-                                        <Text style={styles.infoLabel}>Vehicle:</Text>
-                                        <Text style={styles.infoValue}>{item.vehicle?.type || 'N/A'}</Text>
+                                        <Text style={styles.infoLabel}>Fuel:</Text>
+                                        <Text style={styles.infoValue}>{item.vehicle?.fuelType?.name || 'N/A'}</Text>
                                     </View>
                                     <View style={styles.infoRow}>
                                         <Text style={styles.infoLabel}>Joined:</Text>
@@ -1075,5 +1107,53 @@ const styles = StyleSheet.create({
         color: newTheme.colors.bg,
         fontWeight: '700',
         fontSize: 16,
+    },
+    // License plate in queue card
+    plateRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: newTheme.colors.bg3,
+        borderRadius: 10,
+        padding: 12,
+        marginBottom: 12,
+    },
+    plateText: {
+        fontSize: 16,
+        fontWeight: '800',
+        letterSpacing: 2,
+        color: newTheme.colors.amber,
+        fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    },
+    plateVehicleType: {
+        fontSize: 12,
+        color: newTheme.colors.text2,
+    },
+    // Wrong station error
+    wrongStationBox: {
+        backgroundColor: 'rgba(248,113,113,0.08)',
+        borderRadius: 12,
+        padding: 16,
+        alignItems: 'center',
+        marginVertical: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(248,113,113,0.2)',
+    },
+    wrongStationLabel: {
+        fontSize: 11,
+        color: newTheme.colors.text3,
+        marginBottom: 6,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    wrongStationName: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: newTheme.colors.red,
+    },
+    wrongStationCity: {
+        fontSize: 13,
+        color: newTheme.colors.text2,
+        marginTop: 2,
     },
 });

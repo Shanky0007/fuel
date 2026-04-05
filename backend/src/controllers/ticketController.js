@@ -117,6 +117,23 @@ const verifyTicket = async (req, res) => {
             return res.status(400).json({ error: 'Queue entry is no longer active' });
         }
 
+        // ✅ Check if operator is assigned to this station
+        if (req.user.role === 'OPERATOR') {
+            const operator = await prisma.user.findUnique({
+                where: { id: req.user.userId },
+                select: { assignedStationId: true, name: true },
+            });
+
+            if (operator?.assignedStationId && operator.assignedStationId !== ticket.queue.stationId) {
+                return res.status(403).json({
+                    error: `This ticket belongs to "${ticket.queue.station?.name}". You are only authorized to verify tickets for your assigned station.`,
+                    code: 'WRONG_STATION',
+                    ticketStation: ticket.queue.station?.name,
+                    ticketCity: ticket.queue.station?.city,
+                });
+            }
+        }
+
         // ✅ Check if this person is first in line (FIFO enforcement)
         const currentPosition = await prisma.queue.count({
             where: {
@@ -176,6 +193,20 @@ const completeService = async (req, res) => {
 
         if (!queue) {
             return res.status(404).json({ error: 'Queue entry not found' });
+        }
+
+        // Check operator is assigned to this station
+        if (req.user.role === 'OPERATOR') {
+            const operator = await prisma.user.findUnique({
+                where: { id: req.user.userId },
+                select: { assignedStationId: true },
+            });
+            if (operator?.assignedStationId && operator.assignedStationId !== queue.stationId) {
+                return res.status(403).json({
+                    error: 'You are not authorized to complete service at this station.',
+                    code: 'WRONG_STATION',
+                });
+            }
         }
 
         // Default fuel amount if not provided (assume full tank based on vehicle type)
