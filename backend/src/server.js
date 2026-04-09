@@ -11,6 +11,7 @@ const vehicleRoutes = require('./routes/vehicleRoutes');
 const locationRoutes = require('./routes/locationRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const operatorRoutes = require('./routes/operatorRoutes');
+const healthRoutes = require('./routes/healthRoutes');
 
 const app = express();
 
@@ -42,10 +43,9 @@ app.use('/api/locations', locationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/operator', operatorRoutes);
 
-// Health Check
-app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'OK', timestamp: new Date() });
-});
+// Health Check Routes
+app.use('/health', healthRoutes);
+app.use('/api/health', healthRoutes);
 
 const PORT = process.env.PORT || 5000;
 
