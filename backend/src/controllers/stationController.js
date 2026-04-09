@@ -1,7 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../db/turso-client');
 const stationService = require('../services/stationService');
-
-const prisma = new PrismaClient();
 
 // Get all stations (with optional user filtering)
 const getAllStations = async (req, res) => {

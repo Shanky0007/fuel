@@ -8,6 +8,10 @@ export default function FuelQuotasPage() {
     const [saving, setSaving] = useState(false);
     const [editingQuota, setEditingQuota] = useState(null);
     const [newLimit, setNewLimit] = useState('');
+    const [notification, setNotification] = useState(null);
+    const [checkingConsumption, setCheckingConsumption] = useState(false);
+    const [registrationNumber, setRegistrationNumber] = useState('');
+    const [consumptionData, setConsumptionData] = useState(null);
 
     useEffect(() => {
         fetchQuotas();
@@ -32,7 +36,7 @@ export default function FuelQuotasPage() {
 
     const handleSave = async (vehicleType) => {
         if (!newLimit || parseFloat(newLimit) < 0) {
-            alert('Please enter a valid positive number');
+            showNotification('Please enter a valid positive number', 'error');
             return;
         }
 
@@ -42,11 +46,40 @@ export default function FuelQuotasPage() {
             await fetchQuotas();
             setEditingQuota(null);
             setNewLimit('');
+            showNotification(`${vehicleType} quota updated successfully!`, 'success');
         } catch (error) {
             console.error('Error updating quota:', error);
-            alert('Failed to update fuel quota');
+            showNotification('Failed to update fuel quota', 'error');
         } finally {
             setSaving(false);
+        }
+    };
+
+    const showNotification = (message, type = 'success') => {
+        setNotification({ message, type });
+        setTimeout(() => setNotification(null), 3000);
+    };
+
+    const handleCheckConsumption = async () => {
+        if (!registrationNumber.trim()) {
+            showNotification('Please enter a registration number', 'error');
+            return;
+        }
+
+        setCheckingConsumption(true);
+        setConsumptionData(null);
+        try {
+            const data = await fuelQuotaService.getVehicleConsumption(registrationNumber);
+            setConsumptionData(data);
+        } catch (error) {
+            console.error('Error checking consumption:', error);
+            if (error.response?.status === 404) {
+                showNotification('Vehicle not found', 'error');
+            } else {
+                showNotification('Failed to fetch consumption data', 'error');
+            }
+        } finally {
+            setCheckingConsumption(false);
         }
     };
 
@@ -95,6 +128,12 @@ export default function FuelQuotasPage() {
 
     return (
         <div className="fuel-quotas-page">
+            {notification && (
+                <div className={`notification notification-${notification.type}`}>
+                    {notification.message}
+                </div>
+            )}
+            
             <div className="page-header">
                 <h2>⛽ Fuel Quota Management</h2>
                 <p className="page-subtitle">Configure weekly fuel limits for each vehicle type</p>
@@ -168,6 +207,37 @@ export default function FuelQuotasPage() {
             </div>
 
             <div className="info-section">
+                <div className="info-card">
+                    <h3>🔍 Check Vehicle Fuel Consumption</h3>
+                    <div className="consumption-checker">
+                        <input
+                            type="text"
+                            placeholder="Enter vehicle registration number"
+                            value={registrationNumber}
+                            onChange={(e) => setRegistrationNumber(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && handleCheckConsumption()}
+                        />
+                        <button
+                            className="btn-primary"
+                            onClick={handleCheckConsumption}
+                            disabled={checkingConsumption}
+                        >
+                            {checkingConsumption ? 'Checking...' : 'Check Consumption'}
+                        </button>
+                    </div>
+                    
+                    {consumptionData && (
+                        <div className="consumption-result">
+                            <h4>📊 Consumption Data</h4>
+                            <p><strong>Vehicle Type:</strong> {consumptionData.vehicleType}</p>
+                            <p><strong>This Week:</strong> {consumptionData.weeklyConsumption} L</p>
+                            <p><strong>Weekly Limit:</strong> {consumptionData.weeklyLimit} L</p>
+                            <p><strong>Remaining:</strong> {consumptionData.remaining} L</p>
+                            <p><strong>Status:</strong> {consumptionData.canRefuel ? '✅ Can refuel' : '❌ Limit exceeded'}</p>
+                        </div>
+                    )}
+                </div>
+                
                 <div className="info-card">
                     <h3>📋 How Fuel Quotas Work</h3>
                     <ul className="info-list">

@@ -1,8 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../db/turso-client');
 const QRCode = require('qrcode');
 const stationService = require('../services/stationService');
-
-const prisma = new PrismaClient();
 
 // Join Queue
 const joinQueue = async (req, res) => {

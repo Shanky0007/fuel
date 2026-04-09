@@ -1,6 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+const prisma = require('../db/turso-client');
 
 // Get all fuel quotas
 const getAllQuotas = async (req, res) => {
@@ -51,6 +49,34 @@ const getVehicleConsumption = async (req, res) => {
     try {
         const { registrationNumber } = req.params;
 
+        // Find the vehicle first
+        const vehicle = await prisma.vehicle.findFirst({
+            where: {
+                registrationNumber: registrationNumber.toUpperCase(),
+            },
+            include: {
+                user: {
+                    select: {
+                        name: true,
+                        email: true,
+                    },
+                },
+            },
+        });
+
+        if (!vehicle) {
+            return res.status(404).json({ error: 'Vehicle not found' });
+        }
+
+        // Get the quota for this vehicle type
+        const quota = await prisma.fuelQuota.findUnique({
+            where: { vehicleType: vehicle.type },
+        });
+
+        if (!quota) {
+            return res.status(404).json({ error: 'No quota found for this vehicle type' });
+        }
+
         // Get current week's start (Monday)
         const now = new Date();
         const dayOfWeek = now.getDay();
@@ -58,6 +84,7 @@ const getVehicleConsumption = async (req, res) => {
         const weekStart = new Date(now.setDate(diff));
         weekStart.setHours(0, 0, 0, 0);
 
+        // Get this week's fuel purchases
         const purchases = await prisma.fuelPurchase.findMany({
             where: {
                 registrationNumber: registrationNumber.toUpperCase(),
@@ -65,28 +92,33 @@ const getVehicleConsumption = async (req, res) => {
                     gte: weekStart,
                 },
             },
-            include: {
-                vehicle: {
-                    select: {
-                        type: true,
-                        licensePlate: true,
-                    },
-                },
-            },
             orderBy: {
                 purchaseDate: 'desc',
             },
         });
 
-        const totalConsumed = purchases.reduce((sum, p) => sum + p.fuelAmount, 0);
+        const weeklyConsumption = purchases.reduce((sum, p) => sum + p.fuelAmount, 0);
+        const remaining = Math.max(0, quota.weeklyLimit - weeklyConsumption);
+        const canRefuel = remaining > 0;
 
         res.json({
-            registrationNumber,
+            registrationNumber: vehicle.registrationNumber,
+            vehicleType: vehicle.type,
+            licensePlate: vehicle.licensePlate,
+            owner: vehicle.user.name,
+            weeklyLimit: quota.weeklyLimit,
+            weeklyConsumption: parseFloat(weeklyConsumption.toFixed(2)),
+            remaining: parseFloat(remaining.toFixed(2)),
+            canRefuel,
             weekStart,
-            totalConsumed,
-            purchases,
+            purchases: purchases.map(p => ({
+                date: p.purchaseDate,
+                amount: p.fuelAmount,
+                stationId: p.stationId,
+            })),
         });
     } catch (error) {
+        console.error('Error fetching vehicle consumption:', error);
         res.status(500).json({ error: error.message });
     }
 };

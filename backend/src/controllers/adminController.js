@@ -1,6 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+const prisma = require('../db/turso-client');
 
 /**
  * Assign region to an operator
@@ -86,6 +84,60 @@ exports.getOperators = async (req, res) => {
   } catch (error) {
     console.error('Error fetching operators:', error);
     res.status(500).json({ error: 'Failed to fetch operators' });
+  }
+};
+
+/**
+ * Get all stations (for admin dashboard)
+ */
+exports.getAllStations = async (req, res) => {
+  try {
+    const { country, region } = req.query;
+
+    let whereClause = {};
+    if (country) {
+      whereClause.country = country;
+    }
+    if (region) {
+      whereClause.region = region;
+    }
+
+    const stations = await prisma.station.findMany({
+      where: whereClause,
+      include: {
+        inventory: {
+          include: {
+            fuelType: true,
+          },
+        },
+        operators: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        queues: {
+          where: {
+            status: {
+              in: ['WAITING', 'SERVING'],
+            },
+          },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    // Add active queue count to each station
+    const stationsWithCounts = stations.map((station) => ({
+      ...station,
+      activeQueues: station.queues.length,
+    }));
+
+    res.json(stationsWithCounts);
+  } catch (error) {
+    console.error('Error fetching stations:', error);
+    res.status(500).json({ error: 'Failed to fetch stations' });
   }
 };
 

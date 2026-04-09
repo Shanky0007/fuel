@@ -1,10 +1,8 @@
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../db/turso-client');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { generateToken } = require('../utils/jwt');
 const { sendPasswordResetEmail } = require('../services/emailService');
-
-const prisma = new PrismaClient();
 
 const register = async (req, res) => {
     try {

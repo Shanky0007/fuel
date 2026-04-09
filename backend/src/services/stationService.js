@@ -1,8 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../db/turso-client');
 const distanceCalculator = require('./distanceCalculator');
 const locationService = require('./locationService');
-
-const prisma = new PrismaClient();
 
 class StationService {
   /**

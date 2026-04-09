@@ -14,9 +14,13 @@
     "seed": "node prisma/seed.js"
   },
   "dependencies": {
-    "@prisma/client": "^5.10.0",
+    "@libsql/client": "^0.8.1",
+    "@prisma/adapter-libsql": "^5.22.0",
+    "@prisma/client": "5.22.0",
+    "@sqlitecloud/drivers": "^1.0.779",
     "axios": "^1.13.6",
     "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^12.8.0",
     "cors": "^2.8.5",
     "country-state-city": "^3.2.1",
     "dotenv": "^16.4.5",
@@ -32,6 +36,6 @@
     "fast-check": "^4.5.3",
     "jest": "^30.2.0",
     "nodemon": "^3.1.0",
-    "prisma": "^5.10.0"
+    "prisma": "5.22.0"
   }
 }

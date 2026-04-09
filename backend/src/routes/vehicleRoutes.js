@@ -1,9 +1,8 @@
 const express = require('express');
 const { addVehicle, getMyVehicles, deleteVehicle } = require('../controllers/vehicleController');
 const { authenticate } = require('../middleware/authMiddleware');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../db/turso-client');
 
-const prisma = new PrismaClient();
 const router = express.Router();
 
 // Public endpoint to get fuel types (no authentication required)

@@ -25,6 +25,9 @@ router.post('/operators/assign-region', authenticate, isAdmin, adminController.a
 router.delete('/operators/:id', authenticate, isAdmin, adminController.deleteOperator);
 
 // ============ STATION MANAGEMENT ============
+// GET /api/admin/stations - Get all stations (for admin dashboard)
+router.get('/stations', authenticate, isAdmin, adminController.getAllStations);
+
 // POST /api/admin/stations - Create a new station
 router.post('/stations', authenticate, isAdmin, adminController.createStation);
 

@@ -1,8 +1,7 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../db/turso-client');
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // Basic health check
 router.get('/', (req, res) => {
